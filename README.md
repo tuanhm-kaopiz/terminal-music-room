@@ -136,6 +136,33 @@ make build
 # binaries: bin/music-room, bin/music-roomd
 ```
 
+### Upgrade from v0.1.x
+
+Your saved session in `~/.config/music-room/config.yaml` is kept — **no need to `login` again**. Only replace the binaries.
+
+**One-liner** (from GitHub; needs `curl`):
+
+```bash
+# Tarball → ~/.local/bin or same dir as your current music-room
+curl -fsSL https://raw.githubusercontent.com/tuanhm-kaopiz/terminal-music-room/v0.2.0/scripts/upgrade.sh | bash -s -- tarball
+
+# .deb (Ubuntu; prompts for sudo)
+curl -fsSL https://raw.githubusercontent.com/tuanhm-kaopiz/terminal-music-room/v0.2.0/scripts/upgrade.sh | bash -s -- deb
+```
+
+From a cloned repo:
+
+```bash
+chmod +x scripts/upgrade.sh
+./scripts/upgrade.sh tarball          # client only
+./scripts/upgrade.sh deb                # client .deb
+INSTALL_SERVER=1 ./scripts/upgrade.sh tarball   # client + music-roomd
+```
+
+Pin a version: `./scripts/upgrade.sh tarball 0.2.0` or `VERSION=0.2.0 ./scripts/upgrade.sh deb`.
+
+**v0.2.0 changes:** `join` opens the sci-fi TUI by default (use `join --repl` for REPL). `q` exits the TUI only; use `l` or `music-room leave` to leave the room. See [Breaking changes (TUI v2)](#breaking-changes-tui-v2).
+
 ## Quickstart
 
 > **Paths:** If you installed from a **release** (tarball or `.deb`), use `music-room` and `music-roomd`. If you **built from source**, use `./bin/music-room` and `./bin/music-roomd` instead.
