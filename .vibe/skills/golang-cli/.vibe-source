@@ -1,0 +1,5 @@
+repo=https://github.com/samber/cc-skills-golang.git
+skill=golang-cli
+installed=2026-07-01T03:31:26Z
+feature=docs/vibe/001-terminal-music-room
+via=npx-skills-add

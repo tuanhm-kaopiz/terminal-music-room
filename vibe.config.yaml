@@ -1,0 +1,53 @@
+# vibe.config.yaml — Project configuration for Vibe DevKit
+
+# Preset stack bundle (installed via ./install.sh --preset <name>)
+# Available: flutter-supabase | null
+preset: null
+
+# Artifact output directory
+artifacts_dir: docs/vibe
+
+# Active feature for gate-check, hooks, and /vibe-* commands
+# Set via: vibe set-active <folder>  or  vibe new <slug>
+active_feature: docs/vibe/001-terminal-music-room
+
+# Default language for specs: en | vi
+language: vi
+
+# Test & lint commands (used in vibe-code and vibe-review gates)
+commands:
+  test: go test ./...
+  lint: go vet ./...
+  typecheck: go build ./...
+
+# Stack hints (architecture phase)
+stack:
+  frontend: null  # TUI client — Bubble Tea (Go), not web
+  backend: Go 1.22+ (music-roomd WebSocket hub)
+  database: null  # v1 in-memory; Redis deferred
+  client: Go — Cobra CLI + Bubble Tea TUI + mpv/yt-dlp
+  transport: WebSocket JSON /v1/ws
+  license: MIT
+
+# Files architecture/code phases should read first
+context_files: []
+
+# Active skills (preset + project). Agent auto-invokes by description.
+skills:
+  - tui-design
+  - golang-cli
+  - bubbletea
+
+# Gate strictness: strict | normal | relaxed
+gate_mode: strict
+
+# Require status: approved on spec.md and architecture.md before code (team sign-off)
+require_human_approval: false
+
+# Tiny change threshold for QUICK: yes
+quick_change_loc_threshold: 10
+
+# Project extensions (managed in .vibe/, synced by install.sh)
+extensions:
+  rules_dir: .vibe/rules
+  skills_dir: .vibe/skills

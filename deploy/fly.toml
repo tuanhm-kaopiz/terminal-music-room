@@ -1,0 +1,38 @@
+# Fly.io — managed SaaS v1 (deploy from repo root)
+#   fly apps create <name>
+#   fly volumes create music_room_data -r <region> -s 1
+#   fly deploy --config deploy/fly.toml
+
+app = "music-room"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile.music-roomd"
+
+[env]
+  MUSIC_ROOM_LISTEN = ":8080"
+  MUSIC_ROOM_DATA_DIR = "/data/chat"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[mounts]
+  source = "music_room_data"
+  destination = "/data/chat"
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1

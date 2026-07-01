@@ -1,0 +1,5 @@
+repo=https://github.com/vercel-labs/skills.git
+path=skills/find-skills
+vendored=2026-06-30T07:33:44Z
+update: ./scripts/vendor-core-skills.sh
+policy: .cursor/rules/03-skill-discovery.mdc

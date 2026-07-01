@@ -1,0 +1,26 @@
+---
+description: Project-specific conventions — rename to 90-{project}.mdc and customize
+globs: "**/*"
+alwaysApply: false
+---
+
+# Project Conventions (customize me)
+
+> Copy this file to `.vibe/rules/90-{your-project}.mdc` and edit.
+> Remove this example header after copying.
+
+## Team standards
+
+- Branch naming: `feature/NNN-slug`
+- PR title: `[NNN] Feature name`
+- Primary reviewer: @team-lead
+
+## Project-specific paths
+
+- Specs: `docs/vibe/`
+- Architecture docs: `docs/architecture/`
+- Do not touch: `lib/legacy/` without approval
+
+## Stack notes
+
+(override preset defaults here if needed)

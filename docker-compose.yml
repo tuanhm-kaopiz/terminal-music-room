@@ -1,0 +1,24 @@
+# Dev stack — music-roomd only (clients run on host with mpv + yt-dlp).
+services:
+  music-roomd:
+    build:
+      context: .
+      dockerfile: Dockerfile.music-roomd
+    image: music-roomd:local
+    ports:
+      - "8080:8080"
+    environment:
+      MUSIC_ROOM_LISTEN: ":8080"
+      MUSIC_ROOM_DATA_DIR: "/data/chat"
+    volumes:
+      - music-room-chat:/data/chat
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  music-room-chat:

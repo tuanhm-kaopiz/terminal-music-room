@@ -1,0 +1,40 @@
+---
+description: Skill discovery policy — find-skills is optional, after GATE 2 only
+alwaysApply: false
+---
+
+# Skill Discovery (not core workflow)
+
+`find-skills` and `vibe-find-skill` are **discovery layer** — like `npm search`, not the Vibe pipeline.
+
+## Policy
+
+1. **Pipeline first** — vibe-* phases are mandatory unless `GATE OVERRIDE`
+2. **Discovery after spec** — only when `spec.md` exists (GATE 2+) for active feature
+3. **Local before global** — check preset skills → `.vibe/skills/` before `npx skills find`
+4. **Project scope** — install to `.vibe/skills/` + `install.sh --project-only`; avoid `-g` on team repos
+5. **Log installs** — append `.vibe/skills-installed.log` (reason, feature, source)
+6. **PR review** — new external skills need maintainer approval in PR description
+
+## When agent may invoke vibe-find-skill
+
+- `/vibe-architecture` and spec names a domain without preset coverage
+- User explicitly asks for a skill **after** feature scope is in `spec.md`
+- Maintainer refreshing vendored skills (`npm run vendor:core-skills`)
+
+## When agent must refuse
+
+- User wants a skill instead of `/vibe-idea` or `/vibe-spec`
+- No `spec.md` for active feature
+- User asks to install without naming feature context
+
+## Refusal format
+
+```
+Skill discovery requires GATE 2 (spec.md) for the active feature.
+**Next step:** Complete /vibe-spec docs/vibe/NNN-{slug} first, or run /vibe-find-skill after spec.
+```
+
+## Vendored upstream
+
+`find-skills` from vercel-labs/skills — see `SOURCES.md`, update via `npm run vendor:core-skills`.

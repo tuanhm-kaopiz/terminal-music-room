@@ -1,0 +1,21 @@
+---
+description: Code quality standards for implementation phase
+globs: "**/*.{ts,tsx,js,jsx,py,go,rs,php,rb,java,kt,swift,dart}"
+alwaysApply: false
+---
+
+# Code Quality
+
+When implementing (phase Code):
+
+- Follow existing patterns in the touched directory
+- Prefer editing existing files over creating new ones
+- Keep functions focused; extract only when reused 2+ times
+- Handle errors at boundaries, not every line
+- Add tests only for non-trivial behavior (not getters/setters)
+
+## File changes
+
+- One logical change per commit when possible
+- No formatting-only changes mixed with logic changes
+- No commented-out code left behind

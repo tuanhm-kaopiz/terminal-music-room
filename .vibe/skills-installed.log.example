@@ -1,0 +1,11 @@
+# Skills install audit log
+
+Append one block per external skill install (via `/vibe-find-skill`).
+
+## Example
+
+## 2026-06-30 — react-best-practices
+- Feature: docs/vibe/003-checkout
+- Reason: NFR performance targets in spec
+- Source: vercel-labs/agent-skills
+- Installed by: @developer

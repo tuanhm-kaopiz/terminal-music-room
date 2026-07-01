@@ -1,0 +1,5 @@
+terminal-music-room (0.1.0-1) unstable; urgency=medium
+
+  * Initial Ubuntu packages: music-room (client), music-roomd (server).
+
+ -- Terminal Music Room <noreply@example.com>  Wed, 01 Jul 2026 12:00:00 +0000

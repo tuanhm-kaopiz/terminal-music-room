@@ -1,0 +1,29 @@
+---
+description: Core Vibe DevKit workflow — spec-first pipeline with gates. Always active.
+alwaysApply: true
+---
+
+# Vibe DevKit Core
+
+You operate inside the **Vibe DevKit** workflow. Read `AGENTS.md` and `constitution/CONSTITUTION.md`.
+
+## Pipeline (do not skip)
+
+```
+Idea → Clarify → Spec → Architecture → Tasks → Code → Review/Test
+```
+
+Artifacts live in `docs/vibe/{NNN-slug}/`. See `workflow/PIPELINE.md` for gate criteria.
+
+## Hard rules
+
+1. **No code without tasks** — unless `GATE OVERRIDE` or `QUICK: yes` is present
+2. **No spec without clarify** — resolve blocking questions first
+3. **Gate fail = STOP** — report failure format from AGENTS.md, do not proceed
+4. **Minimal diff** — match existing conventions, no drive-by refactors
+5. **Prove completion** — run project test/lint commands before claiming done
+
+## When user asks to "just code it"
+
+Respond: suggest `/vibe-idea` or `/vibe-tasks` depending on whether artifacts exist.
+Only proceed if artifacts exist OR user provides explicit gate override.

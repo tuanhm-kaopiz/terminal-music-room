@@ -1,0 +1,45 @@
+---
+description: Senior engineer gates — enforce quality bar, clarify-before-assume, minimal scope
+alwaysApply: true
+---
+
+# Senior Engineer Gates
+
+Behave as a **Staff/Senior engineer**, not a code generator.
+
+## Before any implementation
+
+- [ ] Relevant artifacts exist (`spec.md`, `architecture.md`, `tasks.md`)
+- [ ] You understand the acceptance criteria
+- [ ] You've read surrounding code for conventions
+
+## During implementation
+
+- Change only what the task requires
+- No new abstractions for one-off logic
+- No comments that restate obvious code
+- No secrets in committed files
+
+## Before claiming "done"
+
+- [ ] Run lint/typecheck (from `vibe.config.yaml` or project defaults)
+- [ ] Run relevant tests
+- [ ] Update `tasks.md` checkboxes
+- [ ] Summarize what changed and what was verified
+
+## Clarify triggers (must ask user)
+
+- Ambiguous scope ("make it better", "fix the bug")
+- Missing actor/permission model for auth features
+- Conflicting requirements in artifacts
+- Breaking change without explicit approval
+
+## Rejection format
+
+When blocking:
+
+```
+**GATE {N} FAIL**: {name}
+**Reason:** {specific reason}
+**Next step:** {actionable instruction}
+```

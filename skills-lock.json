@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "bubbletea": {
+      "source": "ggprompts/tfe",
+      "sourceType": "github",
+      "skillPath": ".claude/skills/bubbletea/SKILL.md",
+      "computedHash": "a06df850cbd8282da9c362bd5585150119c87032bb07417a141b71b6f0b966ba"
+    },
+    "golang-cli": {
+      "source": "samber/cc-skills-golang",
+      "sourceType": "github",
+      "skillPath": "skills/golang-cli/SKILL.md",
+      "computedHash": "1901746f0c3c32b219ee06c750e386c2bbdb76978419b8d662aad68cb6759eb6"
+    },
+    "tui-design": {
+      "source": "hyperb1iss/hyperskills",
+      "sourceType": "github",
+      "skillPath": "skills/tui-design/SKILL.md",
+      "computedHash": "92b969f3473842ee731e0c7a5c571e3b89e5dac7da81be5e635e1715b0084e6e"
+    }
+  }
+}

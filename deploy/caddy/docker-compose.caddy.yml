@@ -1,0 +1,22 @@
+# Optional overlay: Caddy TLS in front of music-roomd (dev or VPS).
+# Usage (from repo root):
+#   docker compose -f docker-compose.yml -f deploy/caddy/docker-compose.caddy.yml up
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      music-roomd:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

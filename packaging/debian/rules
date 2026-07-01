@@ -1,0 +1,23 @@
+#!/usr/bin/make -f
+# Build static Go binaries and install into split packages (AC-001, NFR-008).
+export DH_VERBOSE = 1
+export CGO_ENABLED = 0
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	go build -trimpath -ldflags="-s -w" -o bin/music-room ./cmd/music-room
+	go build -trimpath -ldflags="-s -w" -o bin/music-roomd ./cmd/music-roomd
+
+override_dh_auto_install:
+	install -d $(CURDIR)/debian/music-room/usr/bin
+	install -m 0755 bin/music-room $(CURDIR)/debian/music-room/usr/bin/music-room
+	install -d $(CURDIR)/debian/music-roomd/usr/bin
+	install -m 0755 bin/music-roomd $(CURDIR)/debian/music-roomd/usr/bin/music-roomd
+
+override_dh_dwz:
+
+override_dh_strip:
+
+override_dh_shlibdeps:

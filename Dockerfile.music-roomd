@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+# music-roomd — managed sync server (T-021)
+FROM golang:1.22-bookworm AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/music-roomd ./cmd/music-roomd
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl yt-dlp \
+    && rm -rf /var/lib/apt/lists/*
+RUN useradd -r -u 10001 -d /app -s /usr/sbin/nologin appuser
+COPY --from=build /out/music-roomd /usr/local/bin/music-roomd
+ENV MUSIC_ROOM_LISTEN=:8080
+ENV MUSIC_ROOM_DATA_DIR=/data/chat
+RUN mkdir -p /data/chat && chown -R appuser:appuser /data/chat
+WORKDIR /app
+USER appuser
+EXPOSE 8080
+VOLUME ["/data/chat"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -sf http://127.0.0.1:8080/healthz || exit 1
+ENTRYPOINT ["music-roomd"]

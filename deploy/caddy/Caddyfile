@@ -1,0 +1,9 @@
+# Example: TLS reverse proxy in front of music-roomd (VPS / docker-compose).
+# Replace music.example.com and upstream host as needed.
+#
+# docker compose -f docker-compose.yml -f deploy/caddy/docker-compose.caddy.yml up
+
+music.example.com {
+	encode gzip
+	reverse_proxy music-roomd:8080
+}

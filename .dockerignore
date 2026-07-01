@@ -1,0 +1,13 @@
+.git
+.github
+bin/
+data/
+docs/vibe/
+.cursor/
+.vibe/
+.agents/
+*.md
+!docs/DEPLOY.md
+scripts/
+packaging/
+terminals/

@@ -1,0 +1,24 @@
+Source: terminal-music-room
+Section: sound
+Priority: optional
+Maintainer: Terminal Music Room <noreply@example.com>
+Build-Depends: debhelper-compat (= 13), golang-go (>= 2:1.22~)
+Standards-Version: 4.6.2
+Homepage: https://github.com/terminal-music-room/music-room
+Rules-Requires-Root: no
+
+Package: music-room
+Architecture: amd64
+Depends: ${misc:Depends}, mpv, yt-dlp
+Recommends: ffmpeg
+Description: Terminal Music Room — CLI/TUI client
+ Synchronized YouTube listening in the terminal with mpv playback.
+ Join rooms, chat, vote, and listen in sync with your team.
+
+Package: music-roomd
+Architecture: amd64
+Depends: ${misc:Depends}, yt-dlp
+Recommends: ffmpeg
+Description: Terminal Music Room — sync server
+ Managed WebSocket hub for room state, authoritative playback,
+ queue, chat, and YouTube metadata resolution.

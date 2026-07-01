@@ -1,0 +1,5 @@
+repo=https://github.com/hyperb1iss/hyperskills.git
+skill=tui-design
+installed=2026-07-01T03:31:26Z
+feature=docs/vibe/001-terminal-music-room
+via=npx-skills-add

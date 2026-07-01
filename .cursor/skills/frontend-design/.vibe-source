@@ -1,0 +1,5 @@
+repo=https://github.com/anthropics/skills.git
+path=skills/frontend-design
+vendored=2026-06-30T07:33:46Z
+update: ./scripts/vendor-core-skills.sh
+policy: .cursor/rules/03-skill-discovery.mdc

@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/gate-prompt.sh",
+        "matcher": "UserPromptSubmit",
+        "failClosed": true
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/tasks-sync-reminder.sh",
+        "matcher": ".*"
+      }
+    ]
+  }
+}

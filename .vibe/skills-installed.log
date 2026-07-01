@@ -1,0 +1,19 @@
+# Skills install audit log
+
+## 2026-07-01 — tui-design
+- Feature: docs/vibe/001-terminal-music-room
+- Reason: REQ-016 TUI layout; NFR-010 simple wireframe UI; architecture ADR-005
+- Source: hyperb1iss/hyperskills (~862 installs)
+- Installed by: agent (/vibe-find-skill tier 1)
+
+## 2026-07-01 — golang-cli
+- Feature: docs/vibe/001-terminal-music-room
+- Reason: Go monorepo client CLI (Cobra); architecture ADR-001
+- Source: samber/cc-skills-golang (~31.7K installs)
+- Installed by: agent (/vibe-find-skill tier 1)
+
+## 2026-07-01 — bubbletea
+- Feature: docs/vibe/001-terminal-music-room
+- Reason: Bubble Tea TUI client; REQ-015/016; architecture ADR-005
+- Source: ggprompts/tfe (~363 installs)
+- Installed by: agent (/vibe-find-skill tier 1)
