@@ -144,10 +144,10 @@ Your saved session in `~/.config/music-room/config.yaml` is kept — **no need t
 
 ```bash
 # Tarball → ~/.local/bin or same dir as your current music-room
-curl -fsSL https://raw.githubusercontent.com/tuanhm-kaopiz/terminal-music-room/v0.2.0/scripts/upgrade.sh | bash -s -- tarball
+curl -fsSL https://raw.githubusercontent.com/tuanhm-kaopiz/terminal-music-room/main/scripts/upgrade.sh | bash -s -- tarball
 
 # .deb (Ubuntu; prompts for sudo)
-curl -fsSL https://raw.githubusercontent.com/tuanhm-kaopiz/terminal-music-room/v0.2.0/scripts/upgrade.sh | bash -s -- deb
+curl -fsSL https://raw.githubusercontent.com/tuanhm-kaopiz/terminal-music-room/main/scripts/upgrade.sh | bash -s -- deb
 ```
 
 From a cloned repo:
