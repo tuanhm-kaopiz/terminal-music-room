@@ -40,6 +40,74 @@ See [docs/DEPLOY.md](docs/DEPLOY.md) for Docker, Fly.io, and Caddy deployment.
 
 ## Install
 
+Release assets: [GitHub Releases](https://github.com/tuanhm-kaopiz/terminal-music-room/releases) — pick **one** of the options below.
+
+### From release tarball (linux/amd64)
+
+> **Important:** On the [Releases](https://github.com/tuanhm-kaopiz/terminal-music-room/releases) page, GitHub also lists **“Source code (tar.gz)”** — that archive is **full source**, not ready-to-run binaries. After extract you get a folder like `terminal-music-room-0.1.0/` with `.go` files, **not** `music-room`.
+>
+> Download the **binary** asset instead:
+> - `terminal-music-room_0.1.0_linux_amd64.tar.gz` — client + server + checksums  
+> - or download `music-room` and `music-roomd` directly from the same release
+
+The **binary** archive contains:
+
+| File | Role |
+|------|------|
+| `music-room` | CLI/TUI client |
+| `music-roomd` | Sync server (self-host) |
+| `SHA256SUMS` | Checksums for the binaries |
+
+**1. Install system dependencies (Ubuntu):**
+
+```bash
+sudo apt update
+sudo apt install -y mpv yt-dlp ffmpeg curl
+```
+
+**2. Find the downloaded file, then extract:**
+
+The archive name on GitHub may be `terminal-music-room_0.1.0_linux_amd64.tar.gz` or similar — **use the exact filename you downloaded** (hyphens vs underscores differ). `tar` fails with *Cannot open* when you are in the wrong directory or the name does not match.
+
+```bash
+# Find where the browser saved it (common: ~/Downloads)
+ls ~/Downloads/*terminal-music-room*.tar.gz
+
+# Set the path to YOUR **binary** tarball (not "Source code"):
+TARBALL=~/Downloads/terminal-music-room_0.1.0_linux_amd64.tar.gz
+
+mkdir -p ~/apps/terminal-music-room
+tar -xzf "$TARBALL" -C ~/apps/terminal-music-room
+cd ~/apps/terminal-music-room
+ls
+# expect: music-room  music-roomd  SHA256SUMS   (no nested source folder)
+sha256sum -c SHA256SUMS
+```
+
+**Wrong archive?** If `ls` shows only `terminal-music-room-0.1.0/` (source tree), go back to Releases and download `terminal-music-room_*_linux_amd64.tar.gz` or the standalone `music-room` binary — see [From source](#from-source) only if you want to compile yourself.
+
+**3. Put binaries on your `PATH` (pick one):**
+
+```bash
+# Option A — user-local install (recommended)
+mkdir -p ~/.local/bin
+cp music-room music-roomd ~/.local/bin/
+# ensure ~/.local/bin is in PATH (add to ~/.bashrc or ~/.zshrc if needed):
+export PATH="$HOME/.local/bin:$PATH"
+
+# Option B — system-wide
+sudo cp music-room music-roomd /usr/local/bin/
+```
+
+**4. Check:**
+
+```bash
+music-room --help
+music-roomd --help   # optional, only if you self-host the server
+```
+
+Then follow [Quickstart](#quickstart) below — use `music-room` / `music-roomd` directly (no `./bin/` prefix).
+
 ### From `.deb` (release)
 
 Download `music-room_*.deb` from [GitHub Releases](https://github.com/tuanhm-kaopiz/terminal-music-room/releases), then:
@@ -55,6 +123,8 @@ Server package (optional, self-host):
 sudo dpkg -i music-roomd_0.1.0-1_amd64.deb
 ```
 
+After `.deb` install, binaries are on `PATH` as `music-room` and `music-roomd`.
+
 ### From source
 
 Requires Go 1.22+.
@@ -68,31 +138,38 @@ make build
 
 ## Quickstart
 
-### 1. Start the server (dev)
+> **Paths:** If you installed from a **release** (tarball or `.deb`), use `music-room` and `music-roomd`. If you **built from source**, use `./bin/music-room` and `./bin/music-roomd` instead.
+
+### 1. Start the server (dev / self-host)
+
+Terminal A:
 
 ```bash
-make build
-MUSIC_ROOM_LISTEN=:8080 ./bin/music-roomd
+MUSIC_ROOM_LISTEN=:8080 music-roomd
 ```
 
 Health check: `curl -s http://localhost:8080/healthz`
 
 ### 2. Log in and create a room
 
+Terminal B:
+
 ```bash
-./bin/music-room login --name alice --server http://localhost:8080
-./bin/music-room create backend-team
-./bin/music-room play --url 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
-# plays until Ctrl+C — or use join --tui in another terminal for Bob
+music-room login --name alice --server http://localhost:8080
+music-room create backend-team
+music-room play --url 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
+# plays until Ctrl+C — audio via mpv; keep this terminal open or use join --tui in another terminal
 ```
 
 Config is saved to `~/.config/music-room/config.yaml`. Override with `MUSIC_ROOM_CONFIG` or `--config`.
 
-### 3. Join with the TUI (second terminal)
+### 3. Join with the TUI (second user)
+
+Terminal C:
 
 ```bash
-./bin/music-room login --name bob --server http://localhost:8080
-./bin/music-room join backend-team --tui
+music-room login --name bob --server http://localhost:8080
+music-room join backend-team --tui
 ```
 
 Press `q` to quit the TUI and leave the room. Use `--repl=false` for a one-shot join without UI.
@@ -100,12 +177,22 @@ Press `q` to quit the TUI and leave the room. Use `--repl=false` for a one-shot 
 ### 4. CLI without TUI
 
 ```bash
-./bin/music-room join backend-team --repl=false
-./bin/music-room chat hello from bob
-./bin/music-room pause
-./bin/music-room vote skip
-./bin/music-room leave
+music-room join backend-team --repl=false
+music-room chat hello from bob
+music-room pause
+music-room vote skip
+music-room leave
 ```
+
+### Typical flow (2 people, one server)
+
+```
+Terminal 1:  music-roomd                          # server
+Terminal 2:  music-room login → create → play     # host (Alice)
+Terminal 3:  music-room login → join --tui      # guest (Bob)
+```
+
+Both Alice and Bob need **mpv** + **yt-dlp** installed locally to hear audio in sync.
 
 ## CLI reference
 
