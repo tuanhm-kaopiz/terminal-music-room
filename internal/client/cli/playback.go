@@ -3,11 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/terminal-music-room/music-room/internal/client/actions"
 	"github.com/terminal-music-room/music-room/internal/client/state"
 	"github.com/terminal-music-room/music-room/internal/protocol"
 )
@@ -60,7 +59,7 @@ func init() {
 
 func runPlayCmd(cmd *cobra.Command, _ []string) error {
 	ctx := commandContext(cmd)
-	payload, err := buildPlayPayload(playURL, playQuery)
+	payload, err := actions.PlaybackPlayPayload(playURL, playQuery)
 	if err != nil {
 		return err
 	}
@@ -100,50 +99,25 @@ func waitForPlayback(store *state.Store, timeout time.Duration, want protocol.Pl
 }
 
 func runPauseCmd(cmd *cobra.Command, _ []string) error {
-	return sendInRoom(cmd, protocol.MsgPlaybackPause, protocol.PlaybackPausePayload{})
-}
-
-func runResumeCmd(cmd *cobra.Command, _ []string) error {
-	return sendInRoom(cmd, protocol.MsgPlaybackResume, protocol.PlaybackResumePayload{})
-}
-
-func runSkipCmd(cmd *cobra.Command, _ []string) error {
-	return sendInRoom(cmd, protocol.MsgPlaybackSkip, protocol.PlaybackSkipPayload{})
-}
-
-func runSeekCmd(cmd *cobra.Command, args []string) error {
-	ms, err := strconv.ParseInt(args[0], 10, 64)
-	if err != nil || ms < 0 {
-		return fmt.Errorf("invalid position %q — use milliseconds", args[0])
-	}
-	return sendInRoom(cmd, protocol.MsgPlaybackSeek, protocol.PlaybackSeekPayload{PositionMs: ms})
-}
-
-func buildPlayPayload(url, query string) (protocol.PlaybackPlayPayload, error) {
-	url = stringsTrim(url)
-	query = stringsTrim(query)
-	switch {
-	case url != "" && query != "":
-		return protocol.PlaybackPlayPayload{}, fmt.Errorf("use either --url or --query")
-	case url != "":
-		return protocol.PlaybackPlayPayload{URL: url}, nil
-	case query != "":
-		return protocol.PlaybackPlayPayload{Query: query}, nil
-	default:
-		return protocol.PlaybackPlayPayload{}, fmt.Errorf("provide --url or --query")
-	}
-}
-
-func sendInRoom(cmd *cobra.Command, msgType string, payload any) error {
-	ctx := commandContext(cmd)
-	return withRuntime(ctx, func(ctx context.Context, rt *Runtime) error {
-		if err := rt.requireInRoom(); err != nil {
-			return err
-		}
-		return rt.send(ctx, msgType, payload)
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.Pause(ctx)
 	})
 }
 
-func stringsTrim(s string) string {
-	return strings.TrimSpace(s)
+func runResumeCmd(cmd *cobra.Command, _ []string) error {
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.Resume(ctx)
+	})
+}
+
+func runSkipCmd(cmd *cobra.Command, _ []string) error {
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.Skip(ctx)
+	})
+}
+
+func runSeekCmd(cmd *cobra.Command, args []string) error {
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.SeekFromString(ctx, args[0])
+	})
 }

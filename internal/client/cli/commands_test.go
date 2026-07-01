@@ -18,6 +18,143 @@ import (
 	"github.com/terminal-music-room/music-room/internal/server/hub"
 )
 
+func resetCLIGlobals() {
+	configPath = ""
+	loginName = ""
+	loginServer = ""
+	joinTUI = true
+	joinRepl = false
+	RootCmd.SetArgs(nil)
+	RootCmd.SetOut(io.Discard)
+	RootCmd.SetErr(io.Discard)
+	_ = joinCmd.Flags().Set("tui", "true")
+	_ = joinCmd.Flags().Set("repl", "false")
+}
+
+func TestJoinFlagDefaults(t *testing.T) {
+	tuiFlag := joinCmd.Flags().Lookup("tui")
+	if tuiFlag == nil || tuiFlag.DefValue != "true" {
+		t.Fatalf("join --tui default = %q, want true", tuiFlag.DefValue)
+	}
+	replFlag := joinCmd.Flags().Lookup("repl")
+	if replFlag == nil || replFlag.DefValue != "false" {
+		t.Fatalf("join --repl default = %q, want false", replFlag.DefValue)
+	}
+}
+
+func TestJoinOneShotNoUI(t *testing.T) {
+	_, ts, hostCfg := testHub(t)
+	defer ts.Close()
+	guestCfg := filepath.Join(t.TempDir(), "guest.yaml")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := Login(ctx, io.Discard, hostCfg, "join-host", ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	configPath = hostCfg
+	RootCmd.SetOut(io.Discard)
+	RootCmd.SetErr(io.Discard)
+	RootCmd.SetArgs([]string{"create", "join-shot-room"})
+	if err := RootCmd.ExecuteContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Login(ctx, io.Discard, guestCfg, "join-guest", ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	configPath = guestCfg
+
+	var out bytes.Buffer
+	RootCmd.SetOut(&out)
+	RootCmd.SetErr(&out)
+	RootCmd.SetArgs([]string{"join", "join-shot-room", "--tui=false", "--repl=false"})
+	if err := RootCmd.ExecuteContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "joined join-shot-room") {
+		t.Fatalf("out %q", out.String())
+	}
+	resetCLIGlobals()
+}
+
+func TestJoinTUICommandRequiresRoom(t *testing.T) {
+	_, ts, cfgPath := testHub(t)
+	defer ts.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := Login(ctx, io.Discard, cfgPath, "tui-user", ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	configPath = cfgPath
+
+	RootCmd.SetArgs([]string{"tui"})
+	err := RootCmd.ExecuteContext(ctx)
+	if err == nil || !strings.Contains(err.Error(), "not in a room") {
+		t.Fatalf("err %v", err)
+	}
+	resetCLIGlobals()
+}
+
+func TestJoinEnsureRoomForUI(t *testing.T) {
+	_, ts, hostCfg := testHub(t)
+	defer ts.Close()
+	guestCfg := filepath.Join(t.TempDir(), "guest.yaml")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := Login(ctx, io.Discard, hostCfg, "tui-host", ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	configPath = hostCfg
+	hostRT, err := newRuntimeFromConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer hostRT.Close()
+	if err := hostRT.ensureConnected(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := hostRT.send(ctx, protocol.MsgRoomCreate, protocol.RoomCreatePayload{Slug: "tui-room"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := hostRT.waitInRoom("tui-room", defaultWait); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := Login(ctx, io.Discard, guestCfg, "tui-guest", ts.URL); err != nil {
+		t.Fatal(err)
+	}
+	configPath = guestCfg
+	guestRT, err := newRuntimeFromConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer guestRT.Close()
+	if err := guestRT.ensureConnected(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	if err := guestRT.ensureRoomForUI(ctx, "tui-room", &out); err != nil {
+		t.Fatal(err)
+	}
+	if !guestRT.store.Snapshot().InRoom || guestRT.store.Snapshot().Room.Slug != "tui-room" {
+		t.Fatalf("snapshot %+v", guestRT.store.Snapshot())
+	}
+	if !strings.Contains(out.String(), "joined tui-room") {
+		t.Fatalf("out %q", out.String())
+	}
+
+	if err := guestRT.ensureRoomForUI(ctx, "tui-room", &out); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestREPLUnknownCommandHint(t *testing.T) {
 	rt := &Runtime{store: state.NewStore()}
 	if err := rt.store.Apply(mustEnv(t, protocol.MsgRoomSnapshot, protocol.RoomSnapshot{Slug: "r"})); err != nil {
@@ -61,10 +198,10 @@ func TestCreateJoinLeaveCommands(t *testing.T) {
 	configPath = cfgPath
 
 	var createOut bytes.Buffer
-	RootCmd.SetOut(&createOut)
-	RootCmd.SetErr(&createOut)
-	RootCmd.SetArgs([]string{"create", "cli-room"})
-	if err := RootCmd.ExecuteContext(ctx); err != nil {
+	createCmd.SetOut(&createOut)
+	createCmd.SetErr(&createOut)
+	createCmd.SetContext(ctx)
+	if err := runCreate(createCmd, []string{"cli-room"}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(createOut.String(), "cli-room") {
@@ -150,6 +287,8 @@ func TestNotLoggedIn(t *testing.T) {
 func testHub(t *testing.T) (*hub.Server, *httptest.Server, string) {
 	t.Helper()
 	t.Setenv("MUSIC_ROOM_NO_PLAYBACK", "1")
+	resetCLIGlobals()
+	t.Cleanup(resetCLIGlobals)
 	srv := hub.New(hub.Config{ListenAddr: ":0", DataDir: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ts := httptest.NewServer(srv.Handler())
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")

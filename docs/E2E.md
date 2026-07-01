@@ -52,6 +52,34 @@ Play uses `scripts/e2e/play/main.go` in the smoke script (host keeps WS open unt
 
 Local audio requires an active session with sync enabled: `join` (REPL/TUI) or `play` in a room. Set `MUSIC_ROOM_NO_PLAYBACK=1` to disable mpv (tests/CI).
 
+## TUI v2 smoke (automated)
+
+Headless sci-fi HUD check — no mpv or yt-dlp required:
+
+```bash
+chmod +x scripts/tui-smoke.sh
+MUSIC_ROOM_NO_PLAYBACK=1 ./scripts/tui-smoke.sh
+```
+
+What it does:
+
+1. Builds `bin/music-room` and `bin/music-roomd`
+2. Starts `music-roomd` on a random local port
+3. Host: `login` → `create <slug>`
+4. Guest: `login` → headless join + Bubble Tea HUD render (`scripts/e2e/tui/main.go`)
+5. Asserts HUD panels: `ROOM`, `NOW PLAYING`, `QUEUE`, `COMMS`
+6. Asserts **room snapshot** with 2 members via WebSocket
+
+Environment overrides:
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `MUSIC_ROOM_NO_PLAYBACK` | `1` in script | Disable local mpv (recommended for CI) |
+| `TUI_SMOKE_TIMEOUT` | `20s` | Max wait for connect/join/render |
+| `BIN_DIR` | `./bin` | Output directory for binaries |
+
+The headless renderer lives at `scripts/e2e/tui/main.go`. It mirrors `music-room join --tui` (default since v2): connect, join room, start TUI, quit with `q`, verify HUD composition.
+
 ## Manual checklist
 
 Run these after the automated smoke passes (or on a staging server). Two terminals plus optional third for TUI.
@@ -127,7 +155,50 @@ Config path: `~/.config/music-room/config.yaml` (`MUSIC_ROOM_CONFIG` to override
 
 - [ ] Panels show room, now playing, members, queue, chat
 - [ ] Chat and playback updates appear within 1s
-- [ ] Quit with `q` leaves room cleanly
+- [ ] `q` exits TUI only (does not leave room); `l` opens leave confirm
+
+### TUI v2 sci-fi HUD — manual (AC-006, AC-023)
+
+Run after `MUSIC_ROOM_NO_PLAYBACK=1 ./scripts/tui-smoke.sh` passes (or full manual setup below).
+
+**Setup** — Terminal A (server), B (host), C (guest):
+
+```bash
+# A
+make build && MUSIC_ROOM_LISTEN=:8080 ./bin/music-roomd
+
+# B
+./bin/music-room login --name host --server http://localhost:8080
+./bin/music-room create sci-fi-room
+./bin/music-room play --url 'https://www.youtube.com/watch?v=jNQXAC9IVRw' --detach
+
+# C
+./bin/music-room login --name guest --server http://localhost:8080
+./bin/music-room join sci-fi-room          # opens sci-fi TUI by default
+# or: ./bin/music-room tui sci-fi-room
+```
+
+#### AC-006 — aesthetic (cyberpunk / sci-fi)
+
+With ≥3 internal testers in the v2 HUD (80×24 or larger):
+
+- [ ] Each tester describes the UI using at least one of: *cyberpunk*, *sci-fi*, *futuristic*, *neon*
+- [ ] Focused panel shows magenta border; unfocused panels use cyan
+- [ ] HUD includes: header (`ROOM` / `CREW`), `NOW PLAYING`, `QUEUE`, `COMMS`, `SIGNALS` (vote/reactions), status bar
+
+#### AC-023 — host workflow entirely in TUI
+
+As host in the sci-fi TUI (guest playing a track):
+
+- [ ] `a` → add/play URL or search query → track plays or queues
+- [ ] `Tab` / `Shift+Tab` → cycle focus (queue → chat → crew)
+- [ ] `↑` / `↓` in queue panel → scroll / select item
+- [ ] `s` → skip; `v` / `V` → vote skip / priority
+- [ ] `d` or `ctrl+↑` / `ctrl+↓` → host queue admin (remove / reorder)
+- [ ] `?` → help overlay lists shortcuts
+- [ ] Subjective: flow feels ≤ CLI step count or faster (≥2/3 host testers agree)
+
+Notes: compare against REPL fallback (`join --repl`) on the same room if needed.
 
 ### Host transfer (AC-013)
 
@@ -140,6 +211,7 @@ Config path: `~/.config/music-room/config.yaml` (`MUSIC_ROOM_CONFIG` to override
 | Symptom | Check |
 |---------|--------|
 | Smoke hangs on play | `yt-dlp --version`; try `E2E_VIDEO_URL` with a short video |
+| TUI smoke fails HUD assert | Terminal ≥80×24; re-run with `TUI_SMOKE_TIMEOUT=30s` |
 | `ROOM_FULL` / rate limit | Fresh slug; wait 1 minute between smoke runs |
 | Login fails | Server health: `curl -s http://127.0.0.1:PORT/healthz` |
 | No audio | mpv installed; sync/TUI playback path (client-side) |

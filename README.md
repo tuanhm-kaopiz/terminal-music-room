@@ -12,7 +12,7 @@ Synchronized YouTube listening for terminal-first teams. Join a room, share a qu
 - Server-authoritative playback sync over WebSocket
 - YouTube play by URL or search query (server-side `yt-dlp`)
 - Queue, chat, skip/priority votes, emoji reactions
-- Interactive REPL or Bubble Tea TUI (`join --tui`)
+- Interactive sci-fi Bubble Tea HUD (default on `join`) or REPL fallback (`join --repl`)
 
 ## Requirements
 
@@ -158,26 +158,34 @@ Terminal B:
 music-room login --name alice --server http://localhost:8080
 music-room create backend-team
 music-room play --url 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
-# plays until Ctrl+C — audio via mpv; keep this terminal open or use join --tui in another terminal
+# plays until Ctrl+C — audio via mpv; keep this terminal open or run join in another terminal
 ```
 
 Config is saved to `~/.config/music-room/config.yaml`. Override with `MUSIC_ROOM_CONFIG` or `--config`.
 
-### 3. Join with the TUI (second user)
+### 3. Join with the sci-fi TUI (second user)
 
 Terminal C:
 
 ```bash
 music-room login --name bob --server http://localhost:8080
-music-room join backend-team --tui
+music-room join backend-team          # opens sci-fi HUD by default (v2)
+# or: music-room tui backend-team     # join + HUD in one command
 ```
 
-Press `q` to quit the TUI and leave the room. Use `--repl=false` for a one-shot join without UI.
+**Quit vs leave:** `q` exits the TUI but **stays in the room** (playback/sync continues in the background if another client session is active). `l` opens a confirm dialog and **leaves the room** via WebSocket.
+
+Power-user fallbacks:
+
+```bash
+music-room join backend-team --repl              # interactive REPL instead of TUI
+music-room join backend-team --tui=false --repl=false   # one-shot join, no UI
+```
 
 ### 4. CLI without TUI
 
 ```bash
-music-room join backend-team --repl=false
+music-room join backend-team --tui=false --repl=false
 music-room chat hello from bob
 music-room pause
 music-room vote skip
@@ -189,10 +197,65 @@ music-room leave
 ```
 Terminal 1:  music-roomd                          # server
 Terminal 2:  music-room login → create → play     # host (Alice)
-Terminal 3:  music-room login → join --tui      # guest (Bob)
+Terminal 3:  music-room login → join              # guest (Bob) — sci-fi TUI
 ```
 
 Both Alice and Bob need **mpv** + **yt-dlp** installed locally to hear audio in sync.
+
+## Sci-fi TUI (v2)
+
+Cyberpunk-style HUD for host and member — unified layout at 80×24 (degraded mode below that size).
+
+```
+┌─ ◈ ROOM: backend-team  CREW: 2  ● connected ─────────────────────────────┐
+│ NOW PLAYING          │ CREW              │ SIGNALS (vote / reactions)    │
+│ Neon Nights          │ host#1 (host)     │ skip vote 1/2                 │
+│ ████████░░░░ 3:00    │ guest#2           │ 🔥×1                          │
+├──────────────────────┴───────────────────┴──────────────────────────────────┤
+│ QUEUE                                                                       │
+│ › Track Two — guest#2                                                       │
+│   Track Three — host#1                                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ COMMS                                                                       │
+│ guest#2: hello                                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ > Type message… (? help · q exit TUI)                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+  Space pause · s skip · a add · Tab focus · ? help · q exit · l leave
+```
+
+Focused panel border uses **magenta**; unfocused panels use **cyan**. Press `?` in the TUI for the full overlay.
+
+### TUI keymap
+
+| Key | Action |
+|-----|--------|
+| `Space` | Pause / resume |
+| `s` | Skip track |
+| `S` | Seek (milliseconds modal) |
+| `a` | Add URL or search (`Tab` toggles play vs queue) |
+| `Enter` | Send chat |
+| `v` | Vote skip |
+| `V` | Vote priority (selected queue item) |
+| `1`–`4` | Quick react 🔥 ❤️ 😂 👍 |
+| `Tab` / `Shift+Tab` | Cycle focus: queue → chat → crew |
+| `↑` / `↓` | Scroll focused panel (queue selection / chat / members) |
+| `d` | Remove selected queue item **(host)** |
+| `Ctrl+↑` / `Ctrl+↓` | Reorder queue item **(host)** |
+| `q` | Exit TUI (stay in room) |
+| `l` | Leave room (confirm) |
+| `?` / `Esc` | Help overlay |
+
+## Breaking changes (TUI v2)
+
+| Before (v1) | After (v2) |
+|-------------|------------|
+| `join` opened REPL by default | `join` opens **sci-fi TUI** by default |
+| `--tui` required for Bubble Tea | `--tui` still exists (default `true`); use `--repl` for REPL |
+| Simple wireframe TUI panels | Unified cyberpunk HUD for host and member |
+| `q` behavior varied | `q` **only** exits TUI; use `l` or `music-room leave` to leave the room |
+
+Scripting and automation: use `join --tui=false --repl=false` or one-shot CLI commands (`chat`, `play`, …). `create` remains one-shot (no auto-TUI).
 
 ## CLI reference
 
@@ -200,7 +263,8 @@ Both Alice and Bob need **mpv** + **yt-dlp** installed locally to hear audio in 
 |---------|-------------|
 | `login --name <nick> [--server URL]` | Authenticate and save session |
 | `create <slug>` | Create and join a room (you become host) |
-| `join <slug> [--tui] [--repl]` | Join a room (TUI or REPL) |
+| `join <slug> [--tui] [--repl]` | Join a room (TUI by default; `--repl` for REPL) |
+| `tui [slug]` | Open sci-fi HUD (join `slug` first if given) |
 | `leave` | Leave the current room |
 | `play --url URL` / `--query TEXT` | Play YouTube URL or search (listens until Ctrl+C; use `--detach` to return after start) |
 | `pause` / `resume` / `skip` | Playback control |
@@ -227,7 +291,7 @@ Design docs and ADRs:
 
 - [Architecture](docs/vibe/001-terminal-music-room/architecture.md) — components, WebSocket protocol, deployment
 - [Specification](docs/vibe/001-terminal-music-room/spec.md) — requirements and acceptance criteria
-- [E2E testing](docs/E2E.md) — smoke script and manual checklists
+- [E2E testing](docs/E2E.md) — smoke scripts (`e2e-smoke.sh`, `tui-smoke.sh`) and manual checklists
 - [Deployment](docs/DEPLOY.md) — Docker, Fly.io, Caddy
 
 High level: `music-roomd` holds authoritative room/playback state; each client runs mpv locally and syncs to the server clock.
@@ -239,6 +303,7 @@ make test          # go test ./...
 make vet           # go vet ./...
 make build
 ./scripts/e2e-smoke.sh
+MUSIC_ROOM_NO_PLAYBACK=1 ./scripts/tui-smoke.sh
 go test ./internal/server/... -run Integration
 ```
 

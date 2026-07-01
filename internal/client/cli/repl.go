@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-
-	"github.com/terminal-music-room/music-room/internal/protocol"
 )
 
 var errREPLExit = errors.New("repl exit")
@@ -56,20 +54,11 @@ func ExecuteREPLLine(ctx context.Context, rt *Runtime, line string, out io.Write
 	case "play":
 		return runPlayArgs(ctx, rt, args)
 	case "pause":
-		if err := rt.requireInRoom(); err != nil {
-			return err
-		}
-		return rt.send(ctx, protocol.MsgPlaybackPause, protocol.PlaybackPausePayload{})
+		return rt.Actions().Pause(ctx)
 	case "resume":
-		if err := rt.requireInRoom(); err != nil {
-			return err
-		}
-		return rt.send(ctx, protocol.MsgPlaybackResume, protocol.PlaybackResumePayload{})
+		return rt.Actions().Resume(ctx)
 	case "skip":
-		if err := rt.requireInRoom(); err != nil {
-			return err
-		}
-		return rt.send(ctx, protocol.MsgPlaybackSkip, protocol.PlaybackSkipPayload{})
+		return rt.Actions().Skip(ctx)
 	case "seek":
 		return runSeekArgs(ctx, rt, args)
 	case "queue":
@@ -118,21 +107,10 @@ func runVoteREPL(ctx context.Context, rt *Runtime, args []string) error {
 	}
 	switch strings.ToLower(args[0]) {
 	case "skip":
-		return rt.send(ctx, protocol.MsgVoteSkip, protocol.VoteSkipPayload{})
+		return rt.Actions().VoteSkip(ctx)
 	case "priority":
 		return runVotePriorityArgs(ctx, rt, args[1:])
 	default:
 		return fmt.Errorf("unknown /vote subcommand %q — try /help", args[0])
 	}
-}
-
-func parseSourceArgs(args []string) (map[string]string, error) {
-	if len(args) == 0 {
-		return nil, fmt.Errorf("provide a YouTube URL or search query")
-	}
-	joined := strings.Join(args, " ")
-	if strings.Contains(joined, "youtube.com") || strings.Contains(joined, "youtu.be") {
-		return map[string]string{"url": joined}, nil
-	}
-	return map[string]string{"query": joined}, nil
 }

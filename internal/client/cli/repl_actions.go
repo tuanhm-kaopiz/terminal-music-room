@@ -6,50 +6,33 @@ import (
 	"io"
 	"strings"
 
-	"github.com/terminal-music-room/music-room/internal/protocol"
+	"github.com/terminal-music-room/music-room/internal/client/actions"
 )
 
 func runPlayArgs(ctx context.Context, rt *Runtime, args []string) error {
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
-	raw, err := parseSourceArgs(args)
+	url, query, err := parseSourceArgs(args)
 	if err != nil {
 		return err
 	}
-	payload := protocol.PlaybackPlayPayload{}
-	if u, ok := raw["url"]; ok {
-		payload.URL = u
+	if url != "" {
+		return rt.Actions().Play(ctx, url)
 	}
-	if q, ok := raw["query"]; ok {
-		payload.Query = q
-	}
-	return rt.send(ctx, protocol.MsgPlaybackPlay, payload)
+	return rt.Actions().Play(ctx, query)
 }
 
 func runSeekArgs(ctx context.Context, rt *Runtime, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: /seek <position_ms>")
 	}
-	var ms int64
-	if _, err := fmt.Sscan(args[0], &ms); err != nil || ms < 0 {
-		return fmt.Errorf("invalid position %q — use milliseconds", args[0])
-	}
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
-	return rt.send(ctx, protocol.MsgPlaybackSeek, protocol.PlaybackSeekPayload{PositionMs: ms})
+	return rt.Actions().SeekFromString(ctx, args[0])
 }
 
 func runChatArgs(ctx context.Context, rt *Runtime, args []string, out io.Writer) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: /chat <message>")
 	}
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
 	body := strings.Join(args, " ")
-	if err := rt.send(ctx, protocol.MsgChatSend, protocol.ChatSendPayload{Body: body}); err != nil {
+	if err := rt.Actions().Chat(ctx, body); err != nil {
 		return err
 	}
 	if out != nil {
@@ -62,8 +45,9 @@ func runReactArgs(ctx context.Context, rt *Runtime, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: /react <emoji>")
 	}
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
-	return rt.send(ctx, protocol.MsgReactionSend, protocol.ReactionSendPayload{Emoji: args[0]})
+	return rt.Actions().React(ctx, args[0])
+}
+
+func parseSourceArgs(args []string) (url, query string, err error) {
+	return actions.ParseSourceArgs(args)
 }

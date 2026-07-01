@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/terminal-music-room/music-room/internal/client/actions"
 	"github.com/terminal-music-room/music-room/internal/client/config"
 	"github.com/terminal-music-room/music-room/internal/client/state"
 	clientsync "github.com/terminal-music-room/music-room/internal/client/sync"
@@ -113,6 +114,20 @@ func (r *Runtime) send(ctx context.Context, msgType string, payload any) error {
 	}
 	_, err := r.client.Send(ctx, msgType, payload)
 	return err
+}
+
+// Actions returns shared room commands backed by this runtime's send and store.
+func (r *Runtime) Actions() *actions.Room {
+	return actions.New(r.send, r.store)
+}
+
+func actionInRoom(cmd interface {
+	Context() context.Context
+}, fn func(context.Context, *actions.Room) error) error {
+	ctx := commandContext(cmd)
+	return withRuntime(ctx, func(ctx context.Context, rt *Runtime) error {
+		return fn(ctx, rt.Actions())
+	})
 }
 
 func (r *Runtime) waitInRoom(slug string, timeout time.Duration) error {

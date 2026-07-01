@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/terminal-music-room/music-room/internal/client/actions"
 	"github.com/terminal-music-room/music-room/internal/protocol"
 )
 
@@ -49,7 +50,7 @@ func init() {
 }
 
 func runQueueAddCmd(cmd *cobra.Command, _ []string) error {
-	payload, err := buildQueueAddPayload(queueURL, queueQuery)
+	payload, err := actions.QueueAddPayload(queueURL, queueQuery)
 	if err != nil {
 		return err
 	}
@@ -67,42 +68,33 @@ func runQueueAddCmd(cmd *cobra.Command, _ []string) error {
 }
 
 func runQueueRemoveCmd(cmd *cobra.Command, args []string) error {
-	return sendInRoom(cmd, protocol.MsgQueueRemove, protocol.QueueRemovePayload{ItemID: args[0]})
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.QueueRemove(ctx, args[0])
+	})
 }
 
 func runQueueReorderCmd(cmd *cobra.Command, args []string) error {
-	return sendInRoom(cmd, protocol.MsgQueueReorder, protocol.QueueReorderPayload{
-		ItemID:  args[0],
-		AfterID: queueAfter,
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.QueueReorder(ctx, args[0], queueAfter)
 	})
 }
 
 func runQueueAddArgs(ctx context.Context, rt *Runtime, args []string) error {
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
-	raw, err := parseSourceArgs(args)
+	url, query, err := parseSourceArgs(args)
 	if err != nil {
 		return err
 	}
-	payload := protocol.QueueAddPayload{}
-	if u, ok := raw["url"]; ok {
-		payload.URL = u
+	if url != "" {
+		return rt.Actions().QueueAdd(ctx, url)
 	}
-	if q, ok := raw["query"]; ok {
-		payload.Query = q
-	}
-	return rt.send(ctx, protocol.MsgQueueAdd, payload)
+	return rt.Actions().QueueAdd(ctx, query)
 }
 
 func runQueueRemoveArgs(ctx context.Context, rt *Runtime, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: /queue remove <item_id>")
 	}
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
-	return rt.send(ctx, protocol.MsgQueueRemove, protocol.QueueRemovePayload{ItemID: args[0]})
+	return rt.Actions().QueueRemove(ctx, args[0])
 }
 
 func runQueueReorderArgs(ctx context.Context, rt *Runtime, args []string) error {
@@ -113,26 +105,5 @@ func runQueueReorderArgs(ctx context.Context, rt *Runtime, args []string) error 
 	if len(args) >= 3 && strings.EqualFold(args[1], "after") {
 		afterID = args[2]
 	}
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
-	return rt.send(ctx, protocol.MsgQueueReorder, protocol.QueueReorderPayload{
-		ItemID:  args[0],
-		AfterID: afterID,
-	})
-}
-
-func buildQueueAddPayload(url, query string) (protocol.QueueAddPayload, error) {
-	url = stringsTrim(url)
-	query = stringsTrim(query)
-	switch {
-	case url != "" && query != "":
-		return protocol.QueueAddPayload{}, fmt.Errorf("use either --url or --query")
-	case url != "":
-		return protocol.QueueAddPayload{URL: url}, nil
-	case query != "":
-		return protocol.QueueAddPayload{Query: query}, nil
-	default:
-		return protocol.QueueAddPayload{}, fmt.Errorf("provide --url or --query")
-	}
+	return rt.Actions().QueueReorder(ctx, args[0], afterID)
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/terminal-music-room/music-room/internal/protocol"
+	"github.com/terminal-music-room/music-room/internal/client/actions"
 )
 
 var chatCmd = &cobra.Command{
@@ -47,13 +47,9 @@ func init() {
 }
 
 func runChatCmd(cmd *cobra.Command, args []string) error {
-	ctx := commandContext(cmd)
 	body := strings.Join(args, " ")
-	return withRuntime(ctx, func(ctx context.Context, rt *Runtime) error {
-		if err := rt.requireInRoom(); err != nil {
-			return err
-		}
-		if err := rt.send(ctx, protocol.MsgChatSend, protocol.ChatSendPayload{Body: body}); err != nil {
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		if err := room.Chat(ctx, body); err != nil {
 			return err
 		}
 		fmt.Fprintln(cmd.OutOrStdout(), "sent")
@@ -62,23 +58,26 @@ func runChatCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runVoteSkipCmd(cmd *cobra.Command, _ []string) error {
-	return sendInRoom(cmd, protocol.MsgVoteSkip, protocol.VoteSkipPayload{})
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.VoteSkip(ctx)
+	})
 }
 
 func runVotePriorityCmd(cmd *cobra.Command, args []string) error {
-	return sendInRoom(cmd, protocol.MsgVotePriority, protocol.VotePriorityPayload{ItemID: args[0]})
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.VotePriority(ctx, args[0])
+	})
 }
 
 func runReactCmd(cmd *cobra.Command, args []string) error {
-	return sendInRoom(cmd, protocol.MsgReactionSend, protocol.ReactionSendPayload{Emoji: args[0]})
+	return actionInRoom(cmd, func(ctx context.Context, room *actions.Room) error {
+		return room.React(ctx, args[0])
+	})
 }
 
 func runVotePriorityArgs(ctx context.Context, rt *Runtime, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("usage: /vote priority <item_id>")
 	}
-	if err := rt.requireInRoom(); err != nil {
-		return err
-	}
-	return rt.send(ctx, protocol.MsgVotePriority, protocol.VotePriorityPayload{ItemID: args[0]})
+	return rt.Actions().VotePriority(ctx, args[0])
 }

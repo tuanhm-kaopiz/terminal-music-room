@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
-	"github.com/terminal-music-room/music-room/internal/client/tui"
 	"github.com/terminal-music-room/music-room/internal/protocol"
 )
 
@@ -34,8 +33,8 @@ var leaveCmd = &cobra.Command{
 }
 
 func init() {
-	joinCmd.Flags().BoolVar(&joinRepl, "repl", true, "start interactive REPL after joining")
-	joinCmd.Flags().BoolVar(&joinTUI, "tui", false, "start Bubble Tea TUI after joining")
+	joinCmd.Flags().BoolVar(&joinRepl, "repl", false, "start interactive REPL after joining (instead of TUI)")
+	joinCmd.Flags().BoolVar(&joinTUI, "tui", true, "start Bubble Tea TUI after joining")
 	RootCmd.AddCommand(createCmd, joinCmd, leaveCmd)
 }
 
@@ -79,17 +78,11 @@ func runJoin(cmd *cobra.Command, args []string) error {
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "joined %s\n", slug)
 	rt.startLocalPlayback(ctx)
-	if joinTUI {
-		return tui.Run(ctx, tui.Config{
-			Store: rt.store,
-			Send:  rt.send,
-			Leave: func(ctx context.Context) error {
-				return runLeave(ctx, rt, nil)
-			},
-		})
-	}
 	if joinRepl {
 		return RunREPL(ctx, rt, cmd.InOrStdin(), cmd.OutOrStdout())
+	}
+	if joinTUI {
+		return launchTUI(ctx, rt)
 	}
 	return nil
 }
@@ -106,7 +99,7 @@ func runLeave(ctx context.Context, rt *Runtime, out io.Writer) error {
 		return err
 	}
 	defer rt.stopLocalPlayback()
-	if err := rt.send(ctx, protocol.MsgRoomLeave, protocol.RoomLeavePayload{}); err != nil {
+	if err := rt.Actions().Leave(ctx); err != nil {
 		return err
 	}
 	if err := rt.finishLeave(defaultWait); err != nil {
