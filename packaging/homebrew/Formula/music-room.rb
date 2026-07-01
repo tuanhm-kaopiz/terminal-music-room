@@ -10,12 +10,12 @@ class MusicRoom < Formula
 
   on_arm do
     url "https://github.com/tuanhm-kaopiz/terminal-music-room/releases/download/v0.2.1/terminal-music-room_0.2.1_darwin_arm64.tar.gz"
-    sha256 "7998442c0091e54fa8877cb780e556b86e3e14c2367ab076c5bc06e081f41357"
+    sha256 "ffdee4313ddd0c6455a8898f1f969a07b17f98fc6dd4392746388ed171ff5885"
   end
 
   on_intel do
     url "https://github.com/tuanhm-kaopiz/terminal-music-room/releases/download/v0.2.1/terminal-music-room_0.2.1_darwin_amd64.tar.gz"
-    sha256 "7cba5039c083e3a63625444b4bc91c3fdb9a0137c134f9ac5b0b9792257b6fdb"
+    sha256 "096212f37a934636db6172dc7518397a85fa552bc89631492582c81807fa9fda"
   end
 
   def install
