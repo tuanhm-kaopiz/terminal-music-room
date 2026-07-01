@@ -2,14 +2,23 @@ package cli
 
 import (
 	"context"
+	"fmt"
 	"os"
 
+	"github.com/terminal-music-room/music-room/internal/client/deps"
 	"github.com/terminal-music-room/music-room/internal/client/player"
 	clientsync "github.com/terminal-music-room/music-room/internal/client/sync"
 )
 
 func localPlaybackDisabled() bool {
 	return os.Getenv("MUSIC_ROOM_NO_PLAYBACK") != ""
+}
+
+func ensurePlaybackDeps() error {
+	if localPlaybackDisabled() {
+		return nil
+	}
+	return deps.EnsurePlayback()
 }
 
 // startLocalPlayback runs the sync engine and mpv until stopLocalPlayback or Close.
@@ -25,6 +34,10 @@ func (r *Runtime) startLocalPlayback(ctx context.Context) {
 
 	drv := r.playbackDriver
 	if drv == nil {
+		if err := ensurePlaybackDeps(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
 		drv = player.New(player.Config{})
 		r.playbackDriver = drv
 	}

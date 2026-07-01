@@ -67,6 +67,9 @@ func runPlayCmd(cmd *cobra.Command, _ []string) error {
 		if err := rt.requireInRoom(); err != nil {
 			return err
 		}
+		if err := ensurePlaybackDeps(); err != nil {
+			return err
+		}
 		rt.startLocalPlayback(ctx)
 		if err := rt.send(ctx, protocol.MsgPlaybackPlay, payload); err != nil {
 			return err

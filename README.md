@@ -4,7 +4,7 @@
 
 Synchronized YouTube listening for terminal-first teams. Join a room, share a queue, chat, vote to skip, and listen in sync — without leaving the shell.
 
-**v1 scope:** Ubuntu clients (`music-room` CLI/TUI + mpv), managed cloud server (`music-roomd`), 2–20 members per room.
+**V0.2.1 scope:** Ubuntu and Debian-based Linux + **macOS 13+** clients (`music-room` CLI/TUI + mpv), managed cloud server (`music-roomd`), 2–20 members per room. See [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 ## Features
 
@@ -16,7 +16,7 @@ Synchronized YouTube listening for terminal-first teams. Join a room, share a qu
 
 ## Requirements
 
-### Client (Ubuntu 22.04 / 24.04)
+### Client — Linux (Ubuntu 22.04 / 24.04, Debian 12+)
 
 | Package | Purpose |
 |---------|---------|
@@ -28,6 +28,22 @@ Synchronized YouTube listening for terminal-first teams. Join a room, share a qu
 sudo apt update
 sudo apt install -y mpv yt-dlp ffmpeg
 ```
+
+Debian-based derivatives (Linux Mint, Pop!_OS, etc.) use the same packages via `apt`. **Not supported:** Fedora, Arch, and other non-Debian families in V0.2.1.
+
+### Client — macOS (13 Ventura+)
+
+| Package | Purpose |
+|---------|---------|
+| `mpv` | Local audio playback |
+| `yt-dlp` | YouTube stream extraction (mpv `--ytdl`) |
+| `ffmpeg` | Recommended — audio demux/decoding |
+
+```bash
+brew install mpv yt-dlp ffmpeg
+```
+
+Use **Terminal.app** (or iTerm2) at ≥ 80×24 for the sci-fi TUI. Release binaries are unsigned — see [Gatekeeper](#macos-gatekeeper-unsigned-binary) below.
 
 ### Server (operator)
 
@@ -124,6 +140,64 @@ sudo dpkg -i music-roomd_0.1.0-1_amd64.deb
 ```
 
 After `.deb` install, binaries are on `PATH` as `music-room` and `music-roomd`.
+
+### macOS — GitHub Release (arm64 / Intel)
+
+Download the tarball matching your Mac from [GitHub Releases](https://github.com/tuanhm-kaopiz/terminal-music-room/releases):
+
+| Mac | Asset |
+|-----|-------|
+| Apple Silicon (M1/M2/M3…) | `terminal-music-room_0.2.1_darwin_arm64.tar.gz` |
+| Intel | `terminal-music-room_0.2.1_darwin_amd64.tar.gz` |
+
+**1. Install dependencies:**
+
+```bash
+brew install mpv yt-dlp ffmpeg
+```
+
+**2. Extract and install:**
+
+```bash
+TARBALL=~/Downloads/terminal-music-room_0.2.1_darwin_arm64.tar.gz   # adjust path/arch
+mkdir -p ~/apps/terminal-music-room
+tar -xzf "$TARBALL" -C ~/apps/terminal-music-room
+cd ~/apps/terminal-music-room
+sha256sum -c SHA256SUMS
+mkdir -p ~/.local/bin
+cp music-room ~/.local/bin/
+export PATH="$HOME/.local/bin:$PATH"
+music-room --version
+```
+
+**3. Gatekeeper:** if macOS blocks the binary, see [macOS Gatekeeper](#macos-gatekeeper-unsigned-binary).
+
+### macOS — Homebrew
+
+Install dependencies first (`brew install mpv yt-dlp ffmpeg`), then either:
+
+```bash
+# After v0.2.1 release (formula url/sha256 pinned in repo):
+brew install --formula ./packaging/homebrew/Formula/music-room.rb
+```
+
+See [packaging/homebrew/README.md](packaging/homebrew/README.md) for tap workflow and `bump-formula.sh`.
+
+### macOS Gatekeeper (unsigned binary)
+
+V0.2.1 binaries are **not** notarized. On first run you may see *"cannot be opened because the developer cannot be verified"*.
+
+**Option A — System Settings**
+
+1. Try running `music-room` once.
+2. Open **System Settings → Privacy & Security**.
+3. Click **Open Anyway** for `music-room`.
+
+**Option B — remove quarantine attribute**
+
+```bash
+xattr -dr com.apple.quarantine /path/to/music-room
+```
 
 ### From source
 
@@ -319,6 +393,7 @@ Design docs and ADRs:
 - [Architecture](docs/vibe/001-terminal-music-room/architecture.md) — components, WebSocket protocol, deployment
 - [Specification](docs/vibe/001-terminal-music-room/spec.md) — requirements and acceptance criteria
 - [E2E testing](docs/E2E.md) — smoke scripts (`e2e-smoke.sh`, `tui-smoke.sh`) and manual checklists
+- [Supported platforms](docs/PLATFORMS.md) — Linux, macOS, release artifacts
 - [Deployment](docs/DEPLOY.md) — Docker, Fly.io, Caddy
 
 High level: `music-roomd` holds authoritative room/playback state; each client runs mpv locally and syncs to the server clock.
@@ -349,11 +424,11 @@ GitHub Releases are **not** created when you push `main` only. The workflow in `
 ```bash
 # After tests pass locally:
 go test ./...
-git tag -a v0.1.0 -m "v0.1.0 — first public release"
-git push origin v0.1.0
+git tag -a v0.2.1 -m "v0.2.1 — macOS cross-platform"
+git push origin v0.2.1
 ```
 
-GitHub Actions will build binaries, `.deb` packages, and publish assets to:
+GitHub Actions will build Linux + macOS client tarballs, `.deb` packages, and publish assets to:
 
 https://github.com/tuanhm-kaopiz/terminal-music-room/releases
 

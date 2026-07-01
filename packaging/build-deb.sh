@@ -26,7 +26,7 @@ build_deb() {
 	mkdir -p "${root}/DEBIAN" "${root}/usr/bin"
 
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
-		-trimpath -ldflags="-s -w" \
+		-trimpath -ldflags="-s -w -X main.version=${VERSION}" \
 		-o "${root}/usr/bin/${cmd}" "./cmd/${cmd}"
 
 	cat >"${root}/DEBIAN/control" <<EOF

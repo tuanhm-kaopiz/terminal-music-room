@@ -1,4 +1,4 @@
-// music-room is the Terminal Music Room CLI/TUI client for Ubuntu.
+// music-room is the Terminal Music Room CLI/TUI client.
 package main
 
 import (
@@ -8,7 +8,8 @@ import (
 	"github.com/terminal-music-room/music-room/internal/client/cli"
 )
 
-const version = "0.1.0-dev"
+// version is set at link time: -ldflags "-X main.version=0.2.1"
+var version = "dev"
 
 func main() {
 	if len(os.Args) > 1 && (os.Args[1] == "-v" || os.Args[1] == "--version" || os.Args[1] == "version") {

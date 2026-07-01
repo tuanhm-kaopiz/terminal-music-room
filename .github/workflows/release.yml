@@ -27,9 +27,34 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+  test-macos:
+    name: Test (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: go test
+        run: go test -short ./...
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: Build client
+        run: CGO_ENABLED=0 go build -o music-room ./cmd/music-room
+
+      - name: TUI smoke
+        run: |
+          chmod +x scripts/tui-smoke.sh
+          MUSIC_ROOM_NO_PLAYBACK=1 ./scripts/tui-smoke.sh
+
   release:
     name: Release
-    needs: test
+    needs: [test, test-macos]
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -50,11 +75,17 @@ jobs:
         run: |
           mkdir -p dist
           VERSION="${{ steps.version.outputs.value }}"
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/music-room ./cmd/music-room
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="${LDFLAGS}" -o dist/music-room ./cmd/music-room
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o dist/music-roomd ./cmd/music-roomd
           chmod +x dist/music-room dist/music-roomd
           (cd dist && sha256sum music-room music-roomd > SHA256SUMS)
           tar -C dist -czf "dist/terminal-music-room_${VERSION}_linux_amd64.tar.gz" music-room music-roomd SHA256SUMS
+
+      - name: Build macOS tarballs
+        run: |
+          chmod +x packaging/build-macos.sh
+          ./packaging/build-macos.sh "${{ steps.version.outputs.value }}"
 
       - name: Build Debian packages
         run: |
@@ -72,5 +103,7 @@ jobs:
             dist/music-roomd
             dist/SHA256SUMS
             dist/terminal-music-room_${{ steps.version.outputs.value }}_linux_amd64.tar.gz
+            dist/terminal-music-room_${{ steps.version.outputs.value }}_darwin_arm64.tar.gz
+            dist/terminal-music-room_${{ steps.version.outputs.value }}_darwin_amd64.tar.gz
             dist/music-room_${{ steps.version.outputs.value }}-1_amd64.deb
             dist/music-roomd_${{ steps.version.outputs.value }}-1_amd64.deb

@@ -200,6 +200,62 @@ As host in the sci-fi TUI (guest playing a track):
 
 Notes: compare against REPL fallback (`join --repl`) on the same room if needed.
 
+## Cross-platform matrix (V0.2.1)
+
+Manual verification for **macOS ↔ Linux** rooms. Requires two machines (or VM) that can reach the same `music-roomd` (local or SaaS).
+
+See also [PLATFORMS.md](PLATFORMS.md) for supported OS/arch combinations.
+
+### Prerequisites
+
+**macOS host or guest:**
+
+```bash
+brew install mpv yt-dlp ffmpeg
+music-room --version   # expect V0.2.1 from release build
+```
+
+**Linux host or guest (Ubuntu / Debian 12+):**
+
+```bash
+sudo apt install -y mpv yt-dlp ffmpeg
+music-room --version
+```
+
+Headless / CI without audio: `export MUSIC_ROOM_NO_PLAYBACK=1` (skips mpv; sync state still updates).
+
+### AC-018 — Host macOS, guest Ubuntu
+
+- [ ] macOS: `login` → `create cross-mac-host`
+- [ ] Ubuntu: `login` → `join cross-mac-host` completes in ≤ 2s
+- [ ] Guest snapshot matches host: now-playing, queue, online list
+- [ ] macOS host: `play --url <YouTube>` — Ubuntu guest hears audio; drift ≤ 500ms after ~10s stable
+- [ ] Ubuntu guest: `pause`, `skip`, `queue add`, `chat`, `vote skip`, `react` — host sees updates ≤ 500ms (playback) / ≤ 1s (TUI)
+
+### AC-023 — Host Ubuntu, guest macOS
+
+- [ ] Ubuntu: `create cross-linux-host`
+- [ ] macOS: `join cross-linux-host` ≤ 2s
+- [ ] macOS guest: pause/skip/queue/chat/vote — Ubuntu host syncs
+- [ ] macOS: `join` (sci-fi TUI on **Terminal.app**) — playback changes from Linux host refresh HUD within 1s
+
+### AC-021 / AC-025 — Debian guest or host
+
+Repeat smoke join + play with **Debian 12** on one side and macOS on the other.
+
+### AC-014–017 — macOS TUI (Terminal.app)
+
+On macOS Terminal ≥ 80×24:
+
+- [ ] Sci-fi HUD panels visible (ROOM, NOW PLAYING, QUEUE, COMMS)
+- [ ] `Space` / `s` / `a` / chat / vote work; `q` exits TUI without leave
+- [ ] Automated subset: `MUSIC_ROOM_NO_PLAYBACK=1 ./scripts/tui-smoke.sh` on `macos-latest` CI
+
+### Host transfer (cross-platform)
+
+- [ ] macOS host + Linux guest — macOS `leave` → guest becomes host (AC-013 v1)
+- [ ] Linux host + macOS guest — Linux `leave` → macOS guest becomes host
+
 ### Host transfer (AC-013)
 
 - [ ] Guest joins host room
@@ -214,7 +270,9 @@ Notes: compare against REPL fallback (`join --repl`) on the same room if needed.
 | TUI smoke fails HUD assert | Terminal ≥80×24; re-run with `TUI_SMOKE_TIMEOUT=30s` |
 | `ROOM_FULL` / rate limit | Fresh slug; wait 1 minute between smoke runs |
 | Login fails | Server health: `curl -s http://127.0.0.1:PORT/healthz` |
-| No audio | mpv installed; sync/TUI playback path (client-side) |
+| No audio | mpv installed; sync/TUI playback path (client-side); run `music-room play` and read deps error if missing |
+| macOS Gatekeeper blocks binary | `xattr -dr com.apple.quarantine music-room` or System Settings → Open Anyway — see README |
+| Wrong macOS arch binary | Use `darwin_arm64` on Apple Silicon, `darwin_amd64` on Intel |
 
 ## Related tests
 
