@@ -78,6 +78,34 @@ func TestIntegrationCreateJoinPlayPauseChat(t *testing.T) {
 	_ = guestAck
 }
 
+func TestIntegrationPlayBySearchQuery(t *testing.T) {
+	s := newTestServer(nil)
+	s.resolver = queryResolver{track: protocol.Track{
+		VideoID:    "search00123",
+		Title:      "Search Hit",
+		DurationMs: 180_000,
+		SourceURL:  "https://youtube.com/watch?v=search00123",
+	}}
+	ts, wsURL, ctx := startIntegrationHub(t, s)
+	defer ts.Close()
+
+	conn := dialWithNick(t, ctx, wsURL, "host")
+	defer conn.Close(websocket.StatusNormalClosure, "done")
+	_ = readSessionAck(t, conn)
+	_ = createRoom(t, ctx, conn, "search-play")
+
+	writeMsg(t, ctx, conn, protocol.MsgPlaybackPlay, "q1", protocol.PlaybackPlayPayload{
+		Query: "lofi beats",
+	})
+	state, tick := readPlaybackUpdate(t, conn)
+	if state.Status != protocol.PlaybackPlaying || state.Track == nil || state.Track.Title != "Search Hit" {
+		t.Fatalf("play state %+v", state)
+	}
+	if tick.Status != protocol.PlaybackPlaying {
+		t.Fatalf("play tick %+v", tick)
+	}
+}
+
 func TestIntegrationPlayAfterDisconnect(t *testing.T) {
 	s := newTestServer(nil)
 	s.resolver = fixedResolver{track: protocol.Track{

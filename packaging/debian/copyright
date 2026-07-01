@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: terminal-music-room
-Source: https://github.com/terminal-music-room/music-room
+Source: https://github.com/tuanhm-kaopiz/terminal-music-room
 
 Files: *
 Copyright: 2026 Terminal Music Room contributors

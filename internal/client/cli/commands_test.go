@@ -149,6 +149,7 @@ func TestNotLoggedIn(t *testing.T) {
 
 func testHub(t *testing.T) (*hub.Server, *httptest.Server, string) {
 	t.Helper()
+	t.Setenv("MUSIC_ROOM_NO_PLAYBACK", "1")
 	srv := hub.New(hub.Config{ListenAddr: ":0", DataDir: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ts := httptest.NewServer(srv.Handler())
 	cfgPath := filepath.Join(t.TempDir(), "config.yaml")

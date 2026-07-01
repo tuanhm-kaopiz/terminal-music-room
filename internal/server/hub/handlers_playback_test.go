@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +22,21 @@ func (f fixedResolver) Resolve(_ context.Context, _, _ string) (protocol.Track, 
 		return protocol.Track{}, f.err
 	}
 	return f.track, nil
+}
+
+type queryResolver struct {
+	track protocol.Track
+	err   error
+}
+
+func (q queryResolver) Resolve(_ context.Context, url, query string) (protocol.Track, error) {
+	if q.err != nil {
+		return protocol.Track{}, q.err
+	}
+	if query == "" {
+		return protocol.Track{}, fmt.Errorf("query required")
+	}
+	return q.track, nil
 }
 
 func TestPlaybackPauseResumeSeekSkip(t *testing.T) {

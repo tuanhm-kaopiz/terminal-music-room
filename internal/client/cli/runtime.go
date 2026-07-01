@@ -9,6 +9,7 @@ import (
 
 	"github.com/terminal-music-room/music-room/internal/client/config"
 	"github.com/terminal-music-room/music-room/internal/client/state"
+	clientsync "github.com/terminal-music-room/music-room/internal/client/sync"
 	"github.com/terminal-music-room/music-room/internal/client/ws"
 )
 
@@ -37,6 +38,11 @@ type Runtime struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
+	playbackMu       sync.Mutex
+	playbackCancel   context.CancelFunc
+	playbackWg       sync.WaitGroup
+	playbackDriver   clientsync.Driver
+
 	newClient func(ws.Config) WSClient
 }
 
@@ -55,8 +61,9 @@ func newRuntimeFromConfig() (*Runtime, error) {
 	return &Runtime{cfgPath: path, cfg: cfg}, nil
 }
 
-// Close stops the WebSocket client.
+// Close stops the WebSocket client and local playback.
 func (r *Runtime) Close() {
+	r.stopLocalPlayback()
 	if r.cancel != nil {
 		r.cancel()
 	}

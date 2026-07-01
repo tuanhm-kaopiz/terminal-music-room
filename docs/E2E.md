@@ -48,7 +48,9 @@ Environment overrides:
 
 The snapshot waiter lives at `scripts/e2e/wait/main.go` and is invoked by the smoke script.
 
-Play uses `scripts/e2e/play/main.go` so the host WebSocket stays open until `playback.state` + `playback.tick` arrive (the CLI `play` command disconnects too early for smoke assertions).
+Play uses `scripts/e2e/play/main.go` in the smoke script (host keeps WS open until `playing`). The CLI also supports `music-room play --url …` (waits for `playing`, then listens until Ctrl+C) or `--detach` for fire-and-forget after playback starts.
+
+Local audio requires an active session with sync enabled: `join` (REPL/TUI) or `play` in a room. Set `MUSIC_ROOM_NO_PLAYBACK=1` to disable mpv (tests/CI).
 
 ## Manual checklist
 
@@ -80,7 +82,7 @@ Terminal C — guest:
 
 ### Playback drift (AC-021)
 
-Requires **mpv** running on each client (future: sync engine wired in TUI session).
+Requires **mpv** on each client (`join` or `play` starts the sync engine automatically).
 
 - [ ] With 2+ members and a track playing, audio starts on both clients within ~1s of server `playing`
 - [ ] After 2 minutes on stable LAN, perceived drift ≤ 500ms (target ≤ 200ms)

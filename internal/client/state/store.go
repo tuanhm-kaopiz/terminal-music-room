@@ -136,6 +136,7 @@ func (s *Store) ClearRoom() {
 	s.InRoom = false
 	s.Room = protocol.RoomSnapshot{}
 	s.LastTick = protocol.PlaybackTickPayload{}
+	s.emitPlaybackChange()
 	s.emitRoomChange()
 }
 

@@ -5,14 +5,19 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/terminal-music-room/music-room/internal/client/state"
 	"github.com/terminal-music-room/music-room/internal/protocol"
 )
 
+const defaultPlayWait = 90 * time.Second
+
 var (
-	playURL   string
-	playQuery string
+	playURL    string
+	playQuery  string
+	playDetach bool
 )
 
 var playCmd = &cobra.Command{
@@ -49,6 +54,7 @@ var seekCmd = &cobra.Command{
 func init() {
 	playCmd.Flags().StringVar(&playURL, "url", "", "YouTube URL")
 	playCmd.Flags().StringVar(&playQuery, "query", "", "YouTube search query")
+	playCmd.Flags().BoolVar(&playDetach, "detach", false, "return after playback starts (default: keep listening until Ctrl+C)")
 	RootCmd.AddCommand(playCmd, pauseCmd, resumeCmd, skipCmd, seekCmd)
 }
 
@@ -62,11 +68,34 @@ func runPlayCmd(cmd *cobra.Command, _ []string) error {
 		if err := rt.requireInRoom(); err != nil {
 			return err
 		}
+		rt.startLocalPlayback(ctx)
 		if err := rt.send(ctx, protocol.MsgPlaybackPlay, payload); err != nil {
 			return err
 		}
-		fmt.Fprintln(cmd.OutOrStdout(), "play requested")
+		if err := waitForPlayback(rt.store, defaultPlayWait, protocol.PlaybackPlaying); err != nil {
+			if msg := rt.lastServerError(); msg != "" {
+				return fmt.Errorf("%s", msg)
+			}
+			return fmt.Errorf("wait for playing: %w", err)
+		}
+		track := rt.store.Snapshot().Room.Playback.Track
+		if track != nil {
+			fmt.Fprintf(cmd.OutOrStdout(), "playing %q\n", track.Title)
+		} else {
+			fmt.Fprintln(cmd.OutOrStdout(), "playing")
+		}
+		if playDetach {
+			return nil
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "listening — press Ctrl+C to stop")
+		<-ctx.Done()
 		return nil
+	})
+}
+
+func waitForPlayback(store *state.Store, timeout time.Duration, want protocol.PlaybackStatus) error {
+	return waitFor(store, timeout, func(v state.View) bool {
+		return v.InRoom && v.Room.Playback.Status == want
 	})
 }
 

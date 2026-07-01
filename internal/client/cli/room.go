@@ -78,6 +78,7 @@ func runJoin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("join room: %w", err)
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "joined %s\n", slug)
+	rt.startLocalPlayback(ctx)
 	if joinTUI {
 		return tui.Run(ctx, tui.Config{
 			Store: rt.store,
@@ -104,6 +105,7 @@ func runLeave(ctx context.Context, rt *Runtime, out io.Writer) error {
 	if err := rt.requireInRoom(); err != nil {
 		return err
 	}
+	defer rt.stopLocalPlayback()
 	if err := rt.send(ctx, protocol.MsgRoomLeave, protocol.RoomLeavePayload{}); err != nil {
 		return err
 	}

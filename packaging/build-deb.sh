@@ -38,7 +38,7 @@ Architecture: amd64
 Depends: ${depends}
 Recommends: ${recommends}
 Maintainer: Terminal Music Room <noreply@example.com>
-Homepage: https://github.com/terminal-music-room/music-room
+Homepage: https://github.com/tuanhm-kaopiz/terminal-music-room
 Description: ${desc}
 EOF
 

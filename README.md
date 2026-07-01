@@ -42,7 +42,7 @@ See [docs/DEPLOY.md](docs/DEPLOY.md) for Docker, Fly.io, and Caddy deployment.
 
 ### From `.deb` (release)
 
-Download `music-room_*.deb` from [GitHub Releases](https://github.com/terminal-music-room/music-room/releases), then:
+Download `music-room_*.deb` from [GitHub Releases](https://github.com/tuanhm-kaopiz/terminal-music-room/releases), then:
 
 ```bash
 sudo apt install -y mpv yt-dlp ffmpeg
@@ -60,7 +60,7 @@ sudo dpkg -i music-roomd_0.1.0-1_amd64.deb
 Requires Go 1.22+.
 
 ```bash
-git clone https://github.com/terminal-music-room/music-room.git
+git clone https://github.com/tuanhm-kaopiz/terminal-music-room.git
 cd music-room
 make build
 # binaries: bin/music-room, bin/music-roomd
@@ -83,6 +83,7 @@ Health check: `curl -s http://localhost:8080/healthz`
 ./bin/music-room login --name alice --server http://localhost:8080
 ./bin/music-room create backend-team
 ./bin/music-room play --url 'https://www.youtube.com/watch?v=jNQXAC9IVRw'
+# plays until Ctrl+C — or use join --tui in another terminal for Bob
 ```
 
 Config is saved to `~/.config/music-room/config.yaml`. Override with `MUSIC_ROOM_CONFIG` or `--config`.
@@ -114,7 +115,7 @@ Press `q` to quit the TUI and leave the room. Use `--repl=false` for a one-shot 
 | `create <slug>` | Create and join a room (you become host) |
 | `join <slug> [--tui] [--repl]` | Join a room (TUI or REPL) |
 | `leave` | Leave the current room |
-| `play --url URL` / `--query TEXT` | Play YouTube URL or search |
+| `play --url URL` / `--query TEXT` | Play YouTube URL or search (listens until Ctrl+C; use `--detach` to return after start) |
 | `pause` / `resume` / `skip` | Playback control |
 | `seek <ms>` | Seek to position in milliseconds |
 | `queue add --url URL` / `--query TEXT` | Add to queue |
@@ -129,6 +130,7 @@ Environment:
 |----------|-------------|
 | `MUSIC_ROOM_SERVER_URL` | Default server URL for login |
 | `MUSIC_ROOM_CONFIG` | Config file path |
+| `MUSIC_ROOM_NO_PLAYBACK` | Set to `1` to disable local mpv (tests) |
 | `MUSIC_ROOM_LISTEN` | Server listen address (`music-roomd`) |
 | `MUSIC_ROOM_DATA_DIR` | Server chat log directory |
 
@@ -160,6 +162,23 @@ go test ./internal/server/... -run Integration
 Terminal Music Room is an independent open-source tool — **not affiliated with, endorsed by, or sponsored by Google or YouTube**. Use at your own risk. The authors provide no warranty that any particular video or stream will remain available or playable.
 
 Operators of a managed `music-roomd` instance should publish their own acceptable-use policy and respond to abuse reports.
+
+## Releasing (maintainers)
+
+GitHub Releases are **not** created when you push `main` only. The workflow in `.github/workflows/release.yml` runs when you push a **version tag** `v*`.
+
+```bash
+# After tests pass locally:
+go test ./...
+git tag -a v0.1.0 -m "v0.1.0 — first public release"
+git push origin v0.1.0
+```
+
+GitHub Actions will build binaries, `.deb` packages, and publish assets to:
+
+https://github.com/tuanhm-kaopiz/terminal-music-room/releases
+
+(Use `/releases`, not `/release`.)
 
 ## License
 

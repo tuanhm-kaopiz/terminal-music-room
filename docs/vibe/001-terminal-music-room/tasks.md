@@ -187,9 +187,9 @@ T-019 → T-021 → T-022 → T-023
 |-------|-------|------|---------|
 | 1 — Foundation | 4 | 4 | 0 |
 | 2 — Server core | 8 | 8 | 0 |
-| 3 — Client core | 6 | 5 | 0 |
-| 4 — Integration & release | 5 | 0 | 0 |
-| **Total** | **23** | **17** | **0** |
+| 3 — Client core | 6 | 6 | 0 |
+| 4 — Integration & release | 5 | 5 | 0 |
+| **Total** | **23** | **23** | **0** |
 
 ## Gate G4 checklist
 
