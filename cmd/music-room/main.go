@@ -8,7 +8,7 @@ import (
 	"github.com/terminal-music-room/music-room/internal/client/cli"
 )
 
-// version is set at link time: -ldflags "-X main.version=0.2.1"
+// version is set at link time: -ldflags "-X main.version=0.3.0"
 var version = "dev"
 
 func main() {
