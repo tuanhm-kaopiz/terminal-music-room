@@ -24,6 +24,14 @@ func resetCLIGlobals() {
 	loginServer = ""
 	joinTUI = true
 	joinRepl = false
+	// Commands keep their context across invocations. Some tests set command contexts
+	// (e.g. createCmd.SetContext), and the stored context can be canceled after the
+	// test finishes, causing flakes in later tests.
+	RootCmd.SetContext(context.Background())
+	createCmd.SetContext(context.Background())
+	joinCmd.SetContext(context.Background())
+	leaveCmd.SetContext(context.Background())
+	loginCmd.SetContext(context.Background())
 	RootCmd.SetArgs(nil)
 	RootCmd.SetOut(io.Discard)
 	RootCmd.SetErr(io.Discard)
@@ -50,7 +58,9 @@ func TestJoinOneShotNoUI(t *testing.T) {
 	defer ts.Close()
 	guestCfg := filepath.Join(t.TempDir(), "guest.yaml")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	// These tests exercise real websocket traffic (client ↔ hub). In CI/macOS runners,
+	// the default timeouts can be too tight and cause flaky "context canceled" writes.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := Login(ctx, io.Discard, hostCfg, "join-host", ts.URL); err != nil {
@@ -192,7 +202,9 @@ func TestCreateJoinLeaveCommands(t *testing.T) {
 	srv, ts, cfgPath := testHub(t)
 	defer ts.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// This test uses the CLI runtime against an in-process hub over websockets and can
+	// be slow on CI/macOS runners. Keep the timeout generous to avoid flakes.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := Login(ctx, io.Discard, cfgPath, "cli-host", ts.URL); err != nil {
