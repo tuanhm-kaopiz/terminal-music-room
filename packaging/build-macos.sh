@@ -9,7 +9,8 @@ cd "$ROOT"
 
 VERSION="${1:-${VERSION:-0.1.0}}"
 DIST="${ROOT}/dist"
-LDFLAGS="-s -w -X main.version=${VERSION}"
+# -B gobuildid: Mach-O LC_UUID required on macOS 15+ / Tahoe (Go <1.24 omits it by default).
+LDFLAGS="-s -w -B gobuildid -X main.version=${VERSION}"
 
 rm -rf "${DIST}/macos-build"
 mkdir -p "${DIST}"

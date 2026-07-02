@@ -201,7 +201,7 @@ xattr -dr com.apple.quarantine /path/to/music-room
 
 ### From source
 
-Requires Go 1.22+.
+Requires Go 1.24+ (1.24 adds Mach-O LC_UUID required on macOS 15+/Tahoe).
 
 ```bash
 git clone https://github.com/tuanhm-kaopiz/terminal-music-room.git

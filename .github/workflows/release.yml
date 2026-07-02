@@ -38,14 +38,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      # macOS 15+/Tahoe requires LC_UUID in Mach-O binaries (Go 1.24+; -B gobuildid backport).
       - name: go test
-        run: go test -short ./internal/client/...
+        run: go test -ldflags="-B gobuildid" -short ./internal/client/...
 
       - name: go vet
         run: go vet ./...
 
       - name: Build client
-        run: CGO_ENABLED=0 go build -o music-room ./cmd/music-room
+        run: CGO_ENABLED=0 go build -ldflags="-B gobuildid" -o music-room ./cmd/music-room
 
       - name: TUI smoke
         run: |
