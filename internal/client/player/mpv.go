@@ -230,6 +230,23 @@ func (p *Player) PositionMs(ctx context.Context) (int64, error) {
 	return int64(seconds * 1000), nil
 }
 
+// Seekable reports whether the current file can be seeked (false while opening/buffering).
+func (p *Player) Seekable(ctx context.Context) (bool, error) {
+	ipc, err := p.ipcOrErr()
+	if err != nil {
+		return false, err
+	}
+	data, err := ipc.Call(ctx, []any{"get_property", "seekable"})
+	if err != nil {
+		return false, nil
+	}
+	var seekable bool
+	if err := json.Unmarshal(data, &seekable); err != nil {
+		return false, nil
+	}
+	return seekable, nil
+}
+
 func (p *Player) ipcOrErr() (ipcClient, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

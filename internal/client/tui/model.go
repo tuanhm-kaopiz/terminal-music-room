@@ -22,6 +22,7 @@ const (
 	ModeModalSearch
 	ModeModalSeek
 	ModeModalLeave
+	ModeModalPassword
 	ModeHelp
 )
 
@@ -41,6 +42,8 @@ type Config struct {
 	// Send is a legacy fallback when Actions is nil.
 	Send  func(ctx context.Context, msgType string, payload any) error
 	Leave func(ctx context.Context) error
+	// PendingJoinSlug defers join until the password modal submits (empty password allowed).
+	PendingJoinSlug string
 }
 
 func (c Config) roomActions() *actions.Room {
@@ -64,13 +67,15 @@ type Model struct {
 	height  int
 	mode    Mode
 	focus   FocusPanel
-	selectedQueueIdx int
+	selectedQueueIdx  int
+	selectedMemberIdx int
 	queueScroll      int
 	chatScroll       int
 	membersScroll    int
-	addModal  modals.AddSource
-	seekModal modals.Seek
-	leaveModal modals.ConfirmLeave
+	addModal         modals.AddSource
+	seekModal        modals.Seek
+	leaveModal       modals.ConfirmLeave
+	passwordModal    modals.Password
 	quit    bool
 	errMsg  string
 }
@@ -94,9 +99,16 @@ func NewModel(ctx context.Context, cfg Config) Model {
 		view:    cfg.Store.Snapshot(),
 		input:   in,
 		storeCh: cfg.Store.SubscribeRoom(),
-		mode:    ModeDashboard,
+		mode:    initialMode(cfg),
 		focus:   FocusChat,
 	}
+}
+
+func initialMode(cfg Config) Mode {
+	if cfg.PendingJoinSlug != "" && cfg.Store != nil && !cfg.Store.Snapshot().InRoom {
+		return ModeModalPassword
+	}
+	return ModeDashboard
 }
 
 func (m *Model) actions() *actions.Room {
@@ -105,12 +117,19 @@ func (m *Model) actions() *actions.Room {
 
 // Init starts periodic refresh and store subscription (AC-054).
 func (m *Model) Init() tea.Cmd {
-	return tea.Batch(
-		m.input.Focus(),
+	cmds := []tea.Cmd{
+		tea.WindowSize(),
 		textinput.Blink,
 		tickCmd(),
 		waitStoreCmd(m.storeCh),
-	)
+	}
+	if m.mode == ModeModalPassword {
+		m.passwordModal = modals.NewPassword(m.width, modals.PasswordJoin, m.cfg.PendingJoinSlug)
+		cmds = append(cmds, textinput.Blink)
+	} else {
+		cmds = append(cmds, m.input.Focus())
+	}
+	return tea.Batch(cmds...)
 }
 
 func tickCmd() tea.Cmd {
@@ -153,8 +172,19 @@ func (m *Model) refresh() {
 	}
 	members := len(m.view.Room.Members)
 	if members == 0 {
+		m.selectedMemberIdx = 0
 		m.membersScroll = 0
-	} else if m.membersScroll >= members {
-		m.membersScroll = members - 1
+	} else {
+		if m.selectedMemberIdx >= members {
+			m.selectedMemberIdx = members - 1
+		}
+		if m.selectedMemberIdx < 0 {
+			m.selectedMemberIdx = 0
+		}
+		m.ensureMembersVisible()
+	}
+	if m.view.KickedMessage != "" {
+		m.errMsg = m.view.KickedMessage
+		m.quit = true
 	}
 }

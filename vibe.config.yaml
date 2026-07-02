@@ -9,7 +9,7 @@ artifacts_dir: docs/vibe
 
 # Active feature for gate-check, hooks, and /vibe-* commands
 # Set via: vibe set-active <folder>  or  vibe new <slug>
-active_feature: docs/vibe/003-macos-cross-platform
+active_feature: docs/vibe/005-room-password-host-kick
 
 # Default language for specs: en | vi
 language: vi

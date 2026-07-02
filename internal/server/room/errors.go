@@ -12,4 +12,6 @@ var (
 	ErrAlreadyInRoom  = errors.New("already in a room")
 	ErrQueueItemNotFound = errors.New("queue item not found")
 	ErrForbidden      = errors.New("forbidden")
+	ErrAuthFailed     = errors.New("authentication failed")
+	ErrAuthRequired   = errors.New("password required")
 )

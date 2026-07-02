@@ -41,6 +41,7 @@ func Help(tm theme.Theme, width int, isHost bool) string {
 		sections = append(sections, helpSection(tm, "Host only", []string{
 			"d         remove selected queue item",
 			"Ctrl+↑/↓  reorder selected queue item",
+			"k / Del   kick selected crew member",
 		}))
 	}
 	return tm.Panel(true).Width(innerW).Render(strings.Join(sections, "\n"))

@@ -3,12 +3,13 @@ package panels
 import (
 	"fmt"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/terminal-music-room/music-room/internal/client/state"
 	"github.com/terminal-music-room/music-room/internal/client/tui/theme"
 )
 
-// Header renders the top HUD strip with room slug, online count, and conn badge.
-func Header(tm theme.Theme, v state.View, width, height int) string {
+// Header renders a single-line room strip (no bordered panel — saves vertical space).
+func Header(tm theme.Theme, v state.View, width, _ int) string {
 	room := v.Room.Slug
 	if room == "" {
 		room = "(no room)"
@@ -17,9 +18,8 @@ func Header(tm theme.Theme, v state.View, width, height int) string {
 	conn := connBadge(tm, v)
 	title := tm.Header().Render(fmt.Sprintf("◈ ROOM: %s", room))
 	meta := tm.Muted().Render(fmt.Sprintf("CREW: %d", online))
-	line := truncate(fmt.Sprintf("%s  %s  %s", title, meta, conn), max(1, width-4))
-	lines := []string{line, "", ""}
-	return wrapPanel(tm, false, width, height, lines)
+	line := truncate(fmt.Sprintf("%s  %s  %s", title, meta, conn), max(1, width))
+	return lipgloss.NewStyle().Width(width).Render(line)
 }
 
 func connBadge(tm theme.Theme, v state.View) string {

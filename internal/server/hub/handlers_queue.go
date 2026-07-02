@@ -7,6 +7,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/terminal-music-room/music-room/internal/protocol"
+	"github.com/terminal-music-room/music-room/internal/server/queuehistory"
 	"github.com/terminal-music-room/music-room/internal/server/room"
 	"github.com/terminal-music-room/music-room/internal/server/youtube"
 )
@@ -68,7 +69,30 @@ func (s *Server) resolveAndAddQueue(client *wsClient, sess *Session, slug, corrI
 		s.sendRoomError(context.Background(), client.conn, corrID, err)
 		return
 	}
+	s.recordQueueHistory(slug, addedBy, rawURL, query, track)
 	s.broadcastQueue(context.Background(), slug, corrID)
+}
+
+func (s *Server) recordQueueHistory(slug, addedBy, rawURL, query string, track protocol.Track) {
+	if s.queueHistory == nil {
+		return
+	}
+	source := query
+	isURL := false
+	if rawURL != "" {
+		source = rawURL
+		isURL = true
+	}
+	entry := queuehistory.Entry{
+		At:      time.Now(),
+		AddedBy: addedBy,
+		Source:  source,
+		IsURL:   isURL,
+		Track:   track,
+	}
+	if err := s.queueHistory.Append(slug, entry); err != nil {
+		s.log.Warn("queue history append failed", "room", slug, "err", err)
+	}
 }
 
 func (s *Server) handleQueueRemove(ctx context.Context, client *wsClient, sess *Session, env protocol.Envelope) {

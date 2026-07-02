@@ -96,14 +96,34 @@ func TestFocusChatScroll(t *testing.T) {
 	}
 }
 
-func TestFocusMembersScroll(t *testing.T) {
+func TestFocusMembersSelection(t *testing.T) {
 	m := focusTestModel(t)
+	for i := 3; i <= 10; i++ {
+		m.view.Room.Members = append(m.view.Room.Members, protocol.Member{
+			DisplayName: fmt.Sprintf("guest#%d", i),
+		})
+	}
 	m.focus = FocusMembers
-	m.membersScroll = 0
-	next, _ := (&m).Update(tea.KeyMsg{Type: tea.KeyUp})
+	m.selectedMemberIdx = 0
+	next, _ := (&m).Update(tea.KeyMsg{Type: tea.KeyDown})
 	got := next.(*Model)
-	if got.membersScroll != 1 {
-		t.Fatalf("membersScroll = %d, want 1", got.membersScroll)
+	if got.selectedMemberIdx != 1 {
+		t.Fatalf("selectedMemberIdx = %d, want 1", got.selectedMemberIdx)
+	}
+}
+
+func TestFocusMembersScrollClamped(t *testing.T) {
+	m := focusTestModel(t)
+	for i := 3; i <= 10; i++ {
+		m.view.Room.Members = append(m.view.Room.Members, protocol.Member{
+			DisplayName: fmt.Sprintf("guest#%d", i),
+		})
+	}
+	m.focus = FocusMembers
+	m.selectedMemberIdx = len(m.view.Room.Members) - 1
+	m.ensureMembersVisible()
+	if m.selectedMemberIdx >= len(m.view.Room.Members) {
+		t.Fatalf("selection out of range")
 	}
 }
 

@@ -125,6 +125,26 @@ func TestSnapshotPlaybackPosition(t *testing.T) {
 	}
 }
 
+func TestRoomPasswordProtected(t *testing.T) {
+	now := time.Now()
+	r := NewRoom("locked", protocol.Member{SessionID: "h", Nickname: "host"}, now, chat.Options{})
+	if r.PasswordProtected() {
+		t.Fatal("new room should be open")
+	}
+	if err := r.SetPassword("secret"); err != nil {
+		t.Fatal(err)
+	}
+	if !r.PasswordProtected() || !r.CheckPassword("secret") {
+		t.Fatal("expected password match")
+	}
+	if r.CheckPassword("wrong") {
+		t.Fatal("expected password mismatch")
+	}
+	snap := r.Snapshot(now)
+	if !snap.PasswordProtected {
+		t.Fatal("snapshot password_protected")
+	}
+}
 
 func TestRemoveLastMemberEmptiesRoom(t *testing.T) {
 	now := time.Now()

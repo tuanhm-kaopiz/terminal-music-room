@@ -8,6 +8,7 @@ const (
 	MsgRoomCreate     = "room.create"
 	MsgRoomJoin       = "room.join"
 	MsgRoomLeave      = "room.leave"
+	MsgRoomKick       = "room.kick"
 	MsgPlaybackPlay   = "playback.play"
 	MsgPlaybackPause  = "playback.pause"
 	MsgPlaybackResume = "playback.resume"
@@ -29,6 +30,7 @@ const (
 	MsgRoomMemberJoined = "room.member_joined"
 	MsgRoomMemberLeft   = "room.member_left"
 	MsgRoomHostChanged  = "room.host_changed"
+	MsgRoomKicked       = "room.kicked"
 	MsgPlaybackState    = "playback.state"
 	MsgPlaybackTick     = "playback.tick"
 	MsgQueueUpdated     = "queue.updated"
@@ -45,14 +47,20 @@ type SessionHelloPayload struct {
 }
 
 type RoomCreatePayload struct {
-	Slug string `json:"slug"`
+	Slug     string `json:"slug"`
+	Password string `json:"password,omitempty"`
 }
 
 type RoomJoinPayload struct {
-	Slug string `json:"slug"`
+	Slug     string `json:"slug"`
+	Password string `json:"password,omitempty"`
 }
 
 type RoomLeavePayload struct{}
+
+type RoomKickPayload struct {
+	TargetSessionID string `json:"target_session_id"`
+}
 
 type PlaybackPlayPayload struct {
 	Query string `json:"query,omitempty"`
@@ -114,6 +122,11 @@ type RoomMemberLeftPayload struct {
 
 type RoomHostChangedPayload struct {
 	HostSessionID string `json:"host_session_id"`
+}
+
+type RoomKickedPayload struct {
+	Reason  string `json:"reason"`
+	Message string `json:"message"`
 }
 
 type PlaybackTickPayload struct {

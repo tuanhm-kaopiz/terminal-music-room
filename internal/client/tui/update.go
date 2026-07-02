@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/terminal-music-room/music-room/internal/client/tui/keys"
 	"github.com/terminal-music-room/music-room/internal/client/tui/layout"
 	"github.com/terminal-music-room/music-room/internal/client/tui/modals"
+	"github.com/terminal-music-room/music-room/internal/protocol"
 )
 
 type tickMsg time.Time
@@ -28,6 +30,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.mode == ModeModalSeek {
 			m.seekModal = m.seekModal.WithWidth(msg.Width)
 		}
+		if m.mode == ModeModalPassword {
+			m.passwordModal = m.passwordModal.WithWidth(msg.Width)
+		}
 		return m, nil
 
 	case tickMsg:
@@ -36,7 +41,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case storeUpdateMsg:
 		m.refresh()
+		if m.quit {
+			return m, tea.Quit
+		}
 		return m, waitStoreCmd(m.storeCh)
+
+	case joinResultMsg:
+		return m.handleJoinResult(msg)
 
 	case tea.KeyMsg:
 		if key := msg.String(); key == "ctrl+c" || key == keys.KeyQuit {
@@ -51,6 +62,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.mode == ModeModalLeave {
 			return m.updateLeaveModal(msg)
+		}
+		if m.mode == ModeModalPassword {
+			return m.updatePasswordModal(msg)
 		}
 		if m.mode == ModeHelp {
 			if msg.String() == "esc" || msg.String() == keys.KeyHelp {
@@ -72,6 +86,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.mode == ModeModalSeek {
 		var cmd tea.Cmd
 		m.seekModal, cmd = m.seekModal.Update(msg)
+		return m, cmd
+	}
+	if m.mode == ModeModalPassword {
+		var cmd tea.Cmd
+		m.passwordModal, cmd = m.passwordModal.Update(msg)
 		return m, cmd
 	}
 
@@ -154,6 +173,11 @@ func (m *Model) handleKey(key string) (tea.Cmd, bool) {
 			return nil, true
 		}
 		return m.openLeaveModal(), true
+	case keys.KeyKick, keys.KeyKickDel:
+		if m.mode != ModeDashboard || m.focus != FocusMembers {
+			return nil, true
+		}
+		return m.handleMemberKick(), true
 	case keys.KeyTab:
 		if m.mode != ModeDashboard {
 			return nil, true
@@ -392,13 +416,43 @@ func (m *Model) handleFocusScroll(delta int) tea.Cmd {
 			m.chatScroll--
 		}
 	case FocusMembers:
-		if delta < 0 {
-			m.membersScroll++
-		} else if m.membersScroll > 0 {
-			m.membersScroll--
-		}
+		m.moveMemberSelection(delta)
 	}
 	return nil
+}
+
+func (m *Model) clampMembersScroll() {
+	max := m.maxMembersScroll()
+	if m.membersScroll > max {
+		m.membersScroll = max
+	}
+	if m.membersScroll < 0 {
+		m.membersScroll = 0
+	}
+}
+
+func (m *Model) maxMembersScroll() int {
+	n := len(m.view.Room.Members)
+	visible := m.membersVisibleRows()
+	if n <= visible {
+		return 0
+	}
+	return n - visible
+}
+
+func (m *Model) membersVisibleRows() int {
+	if m.width == 0 || m.height == 0 {
+		return 1
+	}
+	reg := layout.Compute(m.width, m.height, false)
+	if reg.Degraded {
+		return 1
+	}
+	h := reg.Members.Height
+	if h < 3 {
+		return 1
+	}
+	return h - 2
 }
 
 func (m *Model) moveQueueSelection(delta int) {
@@ -446,7 +500,8 @@ func (m *Model) queueVisibleRows() int {
 
 func (m *Model) openAddModal() tea.Cmd {
 	m.mode = ModeModalAdd
-	m.addModal = modals.NewAddSource(m.width)
+	playing := m.view.Room.Playback.Track != nil && m.view.Room.Playback.Status != protocol.PlaybackEnded
+	m.addModal = modals.NewAddSourceWithIntent(m.width, modals.DefaultAddIntent(playing))
 	return textinput.Blink
 }
 
@@ -454,6 +509,7 @@ func (m *Model) closeModal() {
 	m.addModal = modals.AddSource{}
 	m.seekModal = modals.Seek{}
 	m.leaveModal = modals.ConfirmLeave{}
+	m.passwordModal = modals.Password{}
 	m.mode = ModeDashboard
 }
 
@@ -556,4 +612,113 @@ func (m *Model) submitAddModal() (tea.Model, tea.Cmd) {
 	m.errMsg = ""
 	m.closeModal()
 	return m, nil
+}
+
+type joinResultMsg struct {
+	err error
+}
+
+func (m *Model) updatePasswordModal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.quit = true
+		return m, tea.Quit
+	case "enter":
+		return m, m.submitPasswordJoin()
+	default:
+		var cmd tea.Cmd
+		m.passwordModal, cmd = m.passwordModal.Update(msg)
+		return m, cmd
+	}
+}
+
+func (m *Model) submitPasswordJoin() tea.Cmd {
+	act := m.actions()
+	if act == nil {
+		return nil
+	}
+	slug := m.cfg.PendingJoinSlug
+	password := m.passwordModal.Value()
+	return func() tea.Msg {
+		if err := act.Join(m.ctx, slug, password); err != nil {
+			return joinResultMsg{err: err}
+		}
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			v := act.Store.Snapshot()
+			if v.InRoom && v.Room.Slug == slug {
+				return joinResultMsg{}
+			}
+			if v.LastErr != nil && v.LastErr.Message != "" {
+				return joinResultMsg{err: fmt.Errorf("%s", v.LastErr.Message)}
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+		return joinResultMsg{err: fmt.Errorf("join timed out")}
+	}
+}
+
+func (m *Model) handleJoinResult(msg joinResultMsg) (tea.Model, tea.Cmd) {
+	if msg.err != nil {
+		m.errMsg = msg.err.Error()
+		return m, textinput.Blink
+	}
+	m.errMsg = ""
+	m.closeModal()
+	m.refresh()
+	return m, m.input.Focus()
+}
+
+func (m *Model) moveMemberSelection(delta int) {
+	n := len(m.view.Room.Members)
+	if n == 0 {
+		return
+	}
+	m.selectedMemberIdx += delta
+	if m.selectedMemberIdx < 0 {
+		m.selectedMemberIdx = 0
+	}
+	if m.selectedMemberIdx >= n {
+		m.selectedMemberIdx = n - 1
+	}
+	m.ensureMembersVisible()
+}
+
+func (m *Model) ensureMembersVisible() {
+	visible := m.membersVisibleRows()
+	if visible < 1 {
+		visible = 1
+	}
+	if m.selectedMemberIdx < m.membersScroll {
+		m.membersScroll = m.selectedMemberIdx
+	}
+	if m.selectedMemberIdx >= m.membersScroll+visible {
+		m.membersScroll = m.selectedMemberIdx - visible + 1
+	}
+}
+
+func (m *Model) handleMemberKick() tea.Cmd {
+	if !IsHost(m.view) {
+		m.errMsg = keys.ErrHostOnly.Error()
+		return nil
+	}
+	members := m.view.Room.Members
+	if len(members) == 0 || m.selectedMemberIdx < 0 || m.selectedMemberIdx >= len(members) {
+		return nil
+	}
+	target := members[m.selectedMemberIdx]
+	if target.IsHost || target.SessionID == m.view.SessionID {
+		m.errMsg = "cannot kick this member"
+		return nil
+	}
+	act := m.actions()
+	if act == nil {
+		return nil
+	}
+	if err := act.Kick(m.ctx, target.SessionID); err != nil {
+		m.errMsg = err.Error()
+		return nil
+	}
+	m.errMsg = ""
+	return nil
 }

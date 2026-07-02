@@ -36,7 +36,26 @@ func runTUICmd(cmd *cobra.Command, args []string) error {
 	if len(args) == 1 {
 		slug = args[0]
 	}
-	if err := rt.ensureRoomForUI(ctx, slug, cmd.OutOrStdout()); err != nil {
+	if slug != "" {
+		v := rt.store.Snapshot()
+		if v.InRoom && v.Room.Slug == slug {
+			// already in target room
+		} else if roomPassword != "" {
+			if err := rt.ensureRoomForUI(ctx, slug, cmd.OutOrStdout()); err != nil {
+				return err
+			}
+		} else {
+			rt.startLocalPlayback(ctx)
+			return tui.Run(ctx, tui.Config{
+				Store:           rt.store,
+				Actions:         rt.Actions(),
+				PendingJoinSlug: slug,
+				Leave: func(ctx context.Context) error {
+					return runLeave(ctx, rt, nil)
+				},
+			})
+		}
+	} else if err := rt.requireInRoom(); err != nil {
 		return err
 	}
 	rt.startLocalPlayback(ctx)
@@ -60,7 +79,7 @@ func (r *Runtime) ensureRoomForUI(ctx context.Context, slug string, out io.Write
 		if v.InRoom && v.Room.Slug == slug {
 			return nil
 		}
-		if err := r.send(ctx, protocol.MsgRoomJoin, protocol.RoomJoinPayload{Slug: slug}); err != nil {
+		if err := r.send(ctx, protocol.MsgRoomJoin, protocol.RoomJoinPayload{Slug: slug, Password: roomPassword}); err != nil {
 			return err
 		}
 		if err := r.waitInRoom(slug, defaultWait); err != nil {

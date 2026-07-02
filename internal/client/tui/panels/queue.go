@@ -9,7 +9,7 @@ import (
 
 // Queue renders upcoming tracks with optional scroll offset.
 func Queue(tm theme.Theme, v state.View, width, height int, opts RenderOpts) string {
-	innerW, innerH := innerSize(width, height)
+	innerW, innerH := panelInnerSize(width, height)
 	lines := []string{tm.Title().Render("QUEUE")}
 	items := v.Room.Queue
 	if len(items) == 0 {

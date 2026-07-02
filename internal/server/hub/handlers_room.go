@@ -34,7 +34,7 @@ func (s *Server) handleRoomCreate(ctx context.Context, client *wsClient, sess *S
 		Nickname:    sess.Nickname,
 		DisplayName: sess.DisplayName,
 	}
-	r, err := s.rooms.Create(payload.Slug, member, now)
+	r, err := s.rooms.Create(payload.Slug, member, now, payload.Password)
 	if err != nil {
 		s.sendRoomError(ctx, client.conn, env.ID, err)
 		return
@@ -70,7 +70,7 @@ func (s *Server) handleRoomJoin(ctx context.Context, client *wsClient, sess *Ses
 		Nickname:    sess.Nickname,
 		DisplayName: sess.DisplayName,
 	}
-	r, err := s.rooms.Join(payload.Slug, member, now)
+	r, err := s.rooms.Join(payload.Slug, member, now, payload.Password)
 	if err != nil {
 		s.sendRoomError(ctx, client.conn, env.ID, err)
 		return
@@ -101,6 +101,56 @@ func (s *Server) handleRoomLeave(ctx context.Context, client *wsClient, sess *Se
 		return
 	}
 	s.leaveRoom(ctx, client, sess, env.ID)
+}
+
+func (s *Server) handleRoomKick(ctx context.Context, client *wsClient, sess *Session, env protocol.Envelope) {
+	if sess.RoomSlug == "" {
+		_ = s.sendError(ctx, client.conn, env.ID, protocol.ErrNotInRoom, "not in a room", nil)
+		return
+	}
+
+	var payload protocol.RoomKickPayload
+	if err := env.UnmarshalPayload(&payload); err != nil {
+		_ = s.sendError(ctx, client.conn, env.ID, protocol.ErrInvalidMessage, "invalid room.kick payload", nil)
+		return
+	}
+	if payload.TargetSessionID == "" {
+		_ = s.sendError(ctx, client.conn, env.ID, protocol.ErrInvalidMessage, "target_session_id required", nil)
+		return
+	}
+
+	slug := sess.RoomSlug
+	res, err := s.rooms.KickMember(slug, sess.ID, payload.TargetSessionID)
+	if err != nil {
+		s.sendRoomError(ctx, client.conn, env.ID, err)
+		return
+	}
+
+	if c, ok := s.clients.get(payload.TargetSessionID); ok {
+		kickedEnv, err := protocol.NewEnvelope(protocol.MsgRoomKicked, env.ID, protocol.RoomKickedPayload{
+			Reason:  "removed_by_host",
+			Message: "Removed from room by host",
+		})
+		if err == nil {
+			_ = s.writeEnvelope(ctx, c.conn, kickedEnv)
+		}
+		c.clearRoom()
+	}
+	if ts, ok := s.sessions.Get(payload.TargetSessionID); ok {
+		ts.RoomSlug = ""
+	}
+
+	leftEnv, err := protocol.NewEnvelope(protocol.MsgRoomMemberLeft, env.ID, protocol.RoomMemberLeftPayload{
+		SessionID: payload.TargetSessionID,
+	})
+	if err == nil {
+		_ = s.broadcastToRoom(ctx, slug, leftEnv, payload.TargetSessionID)
+	}
+
+	if res.Destroyed {
+		return
+	}
+	_ = res
 }
 
 func (s *Server) leaveRoom(ctx context.Context, client *wsClient, sess *Session, corrID string) {
@@ -189,6 +239,10 @@ func roomErrorCode(err error) protocol.ErrorCode {
 		return protocol.ErrInvalidMessage
 	case errors.Is(err, room.ErrForbidden):
 		return protocol.ErrForbidden
+	case errors.Is(err, room.ErrAuthFailed):
+		return protocol.ErrAuthFailed
+	case errors.Is(err, room.ErrAuthRequired):
+		return protocol.ErrAuthRequired
 	case errors.Is(err, room.ErrQueueItemNotFound):
 		return protocol.ErrInvalidMessage
 	default:
@@ -210,6 +264,8 @@ func (s *Server) dispatchMessage(ctx context.Context, client *wsClient, sess *Se
 		s.handleRoomJoin(ctx, client, sess, env)
 	case protocol.MsgRoomLeave:
 		s.handleRoomLeave(ctx, client, sess, env)
+	case protocol.MsgRoomKick:
+		s.handleRoomKick(ctx, client, sess, env)
 	case protocol.MsgPlaybackPlay:
 		s.handlePlaybackPlay(ctx, client, sess, env)
 	case protocol.MsgPlaybackPause:

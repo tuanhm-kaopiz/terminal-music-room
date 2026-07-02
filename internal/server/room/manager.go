@@ -21,7 +21,7 @@ func NewManager(chatOpts chat.Options) *Manager {
 }
 
 // Create registers a new room with a unique slug (AC-004, AC-005).
-func (m *Manager) Create(rawSlug string, host protocol.Member, now time.Time) (*Room, error) {
+func (m *Manager) Create(rawSlug string, host protocol.Member, now time.Time, password string) (*Room, error) {
 	slug, err := ValidateSlug(rawSlug)
 	if err != nil {
 		return nil, err
@@ -32,6 +32,11 @@ func (m *Manager) Create(rawSlug string, host protocol.Member, now time.Time) (*
 		return nil, ErrSlugTaken
 	}
 	r := NewRoom(slug, host, now, m.chatOpts)
+	if !IsEmptyPassword(password) {
+		if err := r.SetPassword(password); err != nil {
+			return nil, err
+		}
+	}
 	m.rooms[slug] = r
 	return r, nil
 }
@@ -45,7 +50,7 @@ func (m *Manager) Get(slug string) (*Room, bool) {
 }
 
 // Join adds a member to an existing room (AC-007–010).
-func (m *Manager) Join(rawSlug string, member protocol.Member, now time.Time) (*Room, error) {
+func (m *Manager) Join(rawSlug string, member protocol.Member, now time.Time, password string) (*Room, error) {
 	slug, err := ValidateSlug(rawSlug)
 	if err != nil {
 		return nil, err
@@ -55,6 +60,14 @@ func (m *Manager) Join(rawSlug string, member protocol.Member, now time.Time) (*
 	r, ok := m.rooms[slug]
 	if !ok {
 		return nil, ErrRoomNotFound
+	}
+	if r.PasswordProtected() {
+		if IsEmptyPassword(password) {
+			return nil, ErrAuthRequired
+		}
+		if !r.CheckPassword(password) {
+			return nil, ErrAuthFailed
+		}
 	}
 	if err := r.AddMember(member, now); err != nil {
 		return nil, err
@@ -83,6 +96,30 @@ func (m *Manager) Leave(slug, sessionID string) (LeaveResult, error) {
 		return LeaveResult{Destroyed: true}, nil
 	}
 	return LeaveResult{HostChanged: hostChanged, Room: r}, nil
+}
+
+// KickMember removes a non-host member when requested by the room host.
+func (m *Manager) KickMember(slug, hostSessionID, targetSessionID string) (LeaveResult, error) {
+	m.mu.RLock()
+	r, ok := m.rooms[slug]
+	if !ok {
+		m.mu.RUnlock()
+		return LeaveResult{}, ErrRoomNotFound
+	}
+	if !r.IsHost(hostSessionID) {
+		m.mu.RUnlock()
+		return LeaveResult{}, ErrForbidden
+	}
+	if hostSessionID == targetSessionID || r.IsHost(targetSessionID) {
+		m.mu.RUnlock()
+		return LeaveResult{}, ErrForbidden
+	}
+	if _, ok := r.FindMember(targetSessionID); !ok {
+		m.mu.RUnlock()
+		return LeaveResult{}, ErrNotInRoom
+	}
+	m.mu.RUnlock()
+	return m.Leave(slug, targetSessionID)
 }
 
 // Count returns the number of active rooms.

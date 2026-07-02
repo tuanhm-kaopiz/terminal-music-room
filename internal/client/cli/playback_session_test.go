@@ -50,6 +50,7 @@ func (m *mockPlaybackDriver) Resume(context.Context) error { return nil }
 func (m *mockPlaybackDriver) Seek(context.Context, int64) error {
 	return nil
 }
+func (m *mockPlaybackDriver) Seekable(context.Context) (bool, error) { return true, nil }
 func (m *mockPlaybackDriver) PositionMs(context.Context) (int64, error) { return 0, nil }
 
 func TestRuntimeLocalPlaybackStartStop(t *testing.T) {

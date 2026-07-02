@@ -282,7 +282,7 @@ func TestIntegrationRoomFull(t *testing.T) {
 		_, err := s.rooms.Join("full-room", protocol.Member{
 			SessionID: fmt.Sprintf("offline-%d", i),
 			Nickname:  "member",
-		}, now)
+		}, now, "")
 		if err != nil {
 			t.Fatalf("prefill join %d: %v", i, err)
 		}
@@ -330,6 +330,85 @@ func TestIntegrationHostLeaveTransfer(t *testing.T) {
 	if err != nil || hostChanged.HostSessionID != guestAck.SessionID {
 		t.Fatalf("host changed %+v guest %s err %v", hostChanged, guestAck.SessionID, err)
 	}
+}
+
+func TestIntegrationPasswordJoinAndKick(t *testing.T) {
+	s := newTestServer(nil)
+	ts, wsURL, ctx := startIntegrationHub(t, s)
+	defer ts.Close()
+
+	hostConn := dialWithNick(t, ctx, wsURL, "host")
+	defer hostConn.Close(websocket.StatusNormalClosure, "done")
+	hostAck := readSessionAck(t, hostConn)
+
+	guestConn := dialWithNick(t, ctx, wsURL, "guest")
+	defer guestConn.Close(websocket.StatusNormalClosure, "done")
+	guestAck := readSessionAck(t, guestConn)
+
+	writeMsg(t, ctx, hostConn, protocol.MsgRoomCreate, "c-pw", protocol.RoomCreatePayload{
+		Slug:     "pw-room",
+		Password: "secret",
+	})
+	_, snap, err := readEnvelope[protocol.RoomSnapshot](t, hostConn)
+	if err != nil || !snap.PasswordProtected {
+		t.Fatalf("create snap %+v err %v", snap, err)
+	}
+	_, _, _ = readEnvelope[protocol.ChatMessage](t, hostConn)
+
+	writeMsg(t, ctx, guestConn, protocol.MsgRoomJoin, "j-bad", protocol.RoomJoinPayload{
+		Slug:     "pw-room",
+		Password: "wrong",
+	})
+	_, errPayload, err := readEnvelope[protocol.ErrorPayload](t, guestConn)
+	if err != nil || errPayload.Code != protocol.ErrAuthFailed {
+		t.Fatalf("error %+v err %v", errPayload, err)
+	}
+
+	guestSnap := joinRoomWithPassword(t, ctx, guestConn, hostConn, "pw-room", "secret")
+	if len(guestSnap.Members) != 2 {
+		t.Fatalf("guest snap %+v", guestSnap)
+	}
+
+	writeMsg(t, ctx, hostConn, protocol.MsgRoomKick, "kick1", protocol.RoomKickPayload{
+		TargetSessionID: guestAck.SessionID,
+	})
+	_, kicked, err := readEnvelope[protocol.RoomKickedPayload](t, guestConn)
+	if err != nil || kicked.Message == "" {
+		t.Fatalf("kicked %+v err %v", kicked, err)
+	}
+	_, left, err := readEnvelope[protocol.RoomMemberLeftPayload](t, hostConn)
+	if err != nil || left.SessionID != guestAck.SessionID {
+		t.Fatalf("left %+v err %v", left, err)
+	}
+
+	joinSnap := joinRoomWithPassword(t, ctx, guestConn, hostConn, "pw-room", "secret")
+	if len(joinSnap.Members) != 2 {
+		t.Fatalf("re-join snap %+v", joinSnap)
+	}
+
+	writeMsg(t, ctx, guestConn, protocol.MsgRoomKick, "kick2", protocol.RoomKickPayload{
+		TargetSessionID: hostAck.SessionID,
+	})
+	_, forbid, err := readEnvelope[protocol.ErrorPayload](t, guestConn)
+	if err != nil || forbid.Code != protocol.ErrForbidden {
+		t.Fatalf("forbid %+v err %v", forbid, err)
+	}
+}
+
+func joinRoomWithPassword(t *testing.T, ctx context.Context, joiner, host *websocket.Conn, slug, password string) protocol.RoomSnapshot {
+	t.Helper()
+	writeMsg(t, ctx, joiner, protocol.MsgRoomJoin, "join-"+slug, protocol.RoomJoinPayload{Slug: slug, Password: password})
+	_, snap, err := readEnvelope[protocol.RoomSnapshot](t, joiner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, _ = readEnvelope[protocol.ChatMessage](t, joiner)
+	_, _, _ = readEnvelope[protocol.ChatMessage](t, host)
+	_, _, err = readEnvelope[protocol.RoomMemberJoinedPayload](t, host)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return snap
 }
 
 func startIntegrationHub(t *testing.T, s *Server) (*httptest.Server, string, context.Context) {

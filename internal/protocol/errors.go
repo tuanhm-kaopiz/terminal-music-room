@@ -16,6 +16,8 @@ const (
 	ErrInvalidMessage    ErrorCode = "INVALID_MESSAGE"
 	ErrNotInRoom         ErrorCode = "NOT_IN_ROOM"
 	ErrNoTrackPlaying    ErrorCode = "NO_TRACK_PLAYING"
+	ErrAuthFailed        ErrorCode = "AUTH_FAILED"
+	ErrAuthRequired      ErrorCode = "AUTH_REQUIRED"
 )
 
 // KnownErrorCodes lists codes clients may handle explicitly.
@@ -32,6 +34,8 @@ var KnownErrorCodes = []ErrorCode{
 	ErrInvalidMessage,
 	ErrNotInRoom,
 	ErrNoTrackPlaying,
+	ErrAuthFailed,
+	ErrAuthRequired,
 }
 
 // IsKnownErrorCode reports whether code is a defined protocol error.

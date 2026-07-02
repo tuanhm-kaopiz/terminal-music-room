@@ -6,5 +6,6 @@ type RenderOpts struct {
 	QueueScroll      int
 	QueueSelectedIdx int
 	ChatScroll       int
-	MembersScroll    int
+	MembersScroll       int
+	MembersSelectedIdx  int
 }

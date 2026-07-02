@@ -21,6 +21,8 @@ const (
 	KeyQueueUp      = "ctrl+up"
 	KeyQueueDown    = "ctrl+down"
 	KeyLeave        = "l"
+	KeyKick         = "k"
+	KeyKickDel      = "delete"
 	KeyTab          = "tab"
 	KeyShiftTab     = "shift+tab"
 	KeyUp           = "up"

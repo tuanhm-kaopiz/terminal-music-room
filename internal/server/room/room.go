@@ -15,6 +15,7 @@ type Room struct {
 	Slug          string
 	HostSessionID string
 	CreatedAt     time.Time
+	passwordHash  []byte
 	Members       []protocol.Member
 	Playback      *playback.Clock
 	Queue         []protocol.QueueItem
@@ -105,6 +106,37 @@ func (r *Room) RemoveMember(sessionID string) (emptied bool, hostChanged bool) {
 	return false, false
 }
 
+// PasswordProtected reports whether join requires a password.
+func (r *Room) PasswordProtected() bool {
+	return len(r.passwordHash) > 0
+}
+
+// SetPassword validates and stores a bcrypt hash for the room.
+func (r *Room) SetPassword(plain string) error {
+	trimmed, err := ValidatePassword(plain)
+	if err != nil {
+		return err
+	}
+	hash, err := HashPassword(trimmed)
+	if err != nil {
+		return err
+	}
+	r.passwordHash = hash
+	return nil
+}
+
+// CheckPassword reports whether plain matches the room password (open rooms always match).
+func (r *Room) CheckPassword(plain string) bool {
+	if !r.PasswordProtected() {
+		return true
+	}
+	trimmed, err := ValidatePassword(plain)
+	if err != nil {
+		return false
+	}
+	return CheckPassword(r.passwordHash, trimmed)
+}
+
 // Snapshot builds the wire snapshot for join/reconnect (AC-010).
 func (r *Room) Snapshot(now time.Time) protocol.RoomSnapshot {
 	playbackState := r.Playback.State()
@@ -126,9 +158,10 @@ func (r *Room) Snapshot(now time.Time) protocol.RoomSnapshot {
 		vote = &v
 	}
 	return protocol.RoomSnapshot{
-		Slug:      r.Slug,
-		HostID:    r.HostSessionID,
-		Members:   members,
+		Slug:              r.Slug,
+		HostID:            r.HostSessionID,
+		PasswordProtected: r.PasswordProtected(),
+		Members:           members,
 		Playback:  playbackState,
 		Queue:     queue,
 		Chat:      chat,

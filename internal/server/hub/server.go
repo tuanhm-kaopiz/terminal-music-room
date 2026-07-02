@@ -14,6 +14,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/terminal-music-room/music-room/internal/protocol"
 	"github.com/terminal-music-room/music-room/internal/server/chat"
+	"github.com/terminal-music-room/music-room/internal/server/queuehistory"
 	"github.com/terminal-music-room/music-room/internal/server/room"
 	"github.com/terminal-music-room/music-room/internal/server/vote"
 )
@@ -28,6 +29,7 @@ type Server struct {
 	rooms        *room.Manager
 	clients      *clientRegistry
 	resolver     SourceResolver
+	queueHistory *queuehistory.Store
 	voteCfg      vote.Config
 	reconnectTTL time.Duration
 	tickOnce     sync.Once
@@ -49,6 +51,9 @@ func New(cfg Config, log *slog.Logger) *Server {
 		resolver: newDefaultResolver(),
 		voteCfg:  vote.DefaultConfig(),
 		tickStop: make(chan struct{}),
+	}
+	if cfg.QueueHistoryDir != "" {
+		s.queueHistory = queuehistory.NewStore(cfg.QueueHistoryDir)
 	}
 	s.server = &http.Server{
 		Addr:              cfg.ListenAddr,

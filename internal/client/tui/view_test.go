@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/terminal-music-room/music-room/internal/client/tui/modals"
 	"github.com/terminal-music-room/music-room/internal/client/tui/panels"
 )
 
@@ -38,6 +40,9 @@ func TestView80x24(t *testing.T) {
 			t.Fatalf("missing %q in view output", want)
 		}
 	}
+	if lipgloss.Height(out) != 24 {
+		t.Fatalf("view height %d, want 24", lipgloss.Height(out))
+	}
 }
 
 func TestView120x40(t *testing.T) {
@@ -60,6 +65,25 @@ func TestViewDegraded60x20(t *testing.T) {
 	}
 	if strings.Contains(out, "COMMS") {
 		t.Fatal("chat panel should be hidden in degraded layout")
+	}
+}
+
+func TestViewModalAddFits(t *testing.T) {
+	m := testHUDModel(80, 24)
+	m.mode = ModeModalAdd
+	m.addModal = modals.NewAddSource(80)
+	out := m.View()
+	if !strings.Contains(out, "ADD SOURCE") {
+		t.Fatal("expected add modal overlay")
+	}
+	if lipgloss.Height(out) != 24 {
+		t.Fatalf("modal view height %d, want 24", lipgloss.Height(out))
+	}
+	if !strings.Contains(out, "backend-team") {
+		t.Fatal("header should remain visible")
+	}
+	if strings.Contains(out, "NOW PLAYING") {
+		t.Fatal("dashboard should be hidden behind add overlay")
 	}
 }
 

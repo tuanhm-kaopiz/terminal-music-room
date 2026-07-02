@@ -4,15 +4,23 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/coder/websocket"
 	"github.com/terminal-music-room/music-room/internal/protocol"
+	"github.com/terminal-music-room/music-room/internal/server/queuehistory"
 )
 
 func TestQueueAddRemoveForbidden(t *testing.T) {
+	dir := t.TempDir()
 	s := newTestServer(nil)
+	s.cfg.DataDir = dir
+	s.cfg.QueueHistoryDir = filepath.Join(dir, "queue")
+	s.queueHistory = queuehistory.NewStore(s.cfg.QueueHistoryDir)
 	s.resolver = fixedResolver{track: protocol.Track{
 		VideoID:    "queuevid001",
 		Title:      "Queued Song",
@@ -55,6 +63,14 @@ func TestQueueAddRemoveForbidden(t *testing.T) {
 	}
 	if updated.Items[0].Title != "Queued Song" || updated.Items[0].AddedBy == "" {
 		t.Fatalf("item %+v", updated.Items[0])
+	}
+	historyPath := s.queueHistory.Path("queue-room")
+	data, err := os.ReadFile(historyPath)
+	if err != nil {
+		t.Fatalf("queue history: %v", err)
+	}
+	if !strings.Contains(string(data), "queuevid001") || !strings.Contains(string(data), "Queued Song") {
+		t.Fatalf("history %q", string(data))
 	}
 	itemID := updated.Items[0].ID
 

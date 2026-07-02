@@ -1,6 +1,7 @@
 package panels
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -40,6 +41,21 @@ func TestNowPlayingGolden(t *testing.T) {
 	}
 }
 
+func TestNowPlaying_LongTitleTruncate(t *testing.T) {
+	tm := theme.Default()
+	v := fixtureView()
+	long := strings.Repeat("A", 60)
+	v.Room.Playback.Track.Title = long
+	reg := layout.Compute(80, 24, false)
+	out := NowPlaying(tm, v, reg.NowPlaying.Width, reg.NowPlaying.Height, RenderOpts{})
+	if strings.Contains(out, long) {
+		t.Fatal("title should be truncated")
+	}
+	if !strings.Contains(out, "…") {
+		t.Fatalf("expected ellipsis in truncated title: %q", out)
+	}
+}
+
 func TestMembersHostMarker(t *testing.T) {
 	tm := theme.Default()
 	v := fixtureView()
@@ -50,6 +66,25 @@ func TestMembersHostMarker(t *testing.T) {
 	}
 	if !strings.Contains(out, "*") {
 		t.Fatal("expected host marker")
+	}
+}
+
+func TestMembersScroll(t *testing.T) {
+	tm := theme.Default()
+	v := fixtureView()
+	for i := 3; i <= 12; i++ {
+		v.Room.Members = append(v.Room.Members, protocol.Member{
+			SessionID:   fmt.Sprintf("s%d", i),
+			DisplayName: fmt.Sprintf("guest#%d", i),
+		})
+	}
+	reg := layout.Compute(80, 24, false)
+	out := Members(tm, v, reg.Members.Width, reg.Members.Height, RenderOpts{MembersScroll: 3})
+	if strings.Contains(out, "host#1") {
+		t.Fatalf("scrolled view should skip early members: %q", out)
+	}
+	if !strings.Contains(out, "…") {
+		t.Fatalf("expected more-below indicator: %q", out)
 	}
 }
 

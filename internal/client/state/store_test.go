@@ -88,3 +88,18 @@ func TestClearRoom(t *testing.T) {
 		t.Fatalf("view %+v", v)
 	}
 }
+
+func TestApplyRoomKicked(t *testing.T) {
+	s := NewStore()
+	_ = s.Apply(mustEnvelope(t, protocol.MsgRoomSnapshot, protocol.RoomSnapshot{Slug: "team"}))
+	if err := s.Apply(mustEnvelope(t, protocol.MsgRoomKicked, protocol.RoomKickedPayload{
+		Reason:  "removed_by_host",
+		Message: "Removed from room by host",
+	})); err != nil {
+		t.Fatal(err)
+	}
+	v := s.Snapshot()
+	if v.InRoom || v.KickedMessage != "Removed from room by host" {
+		t.Fatalf("view %+v", v)
+	}
+}

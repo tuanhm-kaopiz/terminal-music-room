@@ -7,7 +7,7 @@ import (
 
 // Chat renders recent chat messages (newest visible within panel height).
 func Chat(tm theme.Theme, v state.View, width, height int, opts RenderOpts) string {
-	innerW, innerH := innerSize(width, height)
+	innerW, innerH := panelInnerSize(width, height)
 	lines := []string{tm.Title().Render("COMMS")}
 	msgs := v.Room.Chat
 	start := 0

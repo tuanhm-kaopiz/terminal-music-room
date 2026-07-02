@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/terminal-music-room/music-room/internal/client/actions"
+	"github.com/terminal-music-room/music-room/internal/client/tui/panels"
 	"github.com/terminal-music-room/music-room/internal/client/tui/theme"
 )
 
@@ -25,20 +26,33 @@ type AddSource struct {
 	Intent AddIntent
 }
 
-// NewAddSource builds a focused add-source modal.
+// DefaultAddIntent picks play-now when idle, queue-add when a track is already playing.
+func DefaultAddIntent(playing bool) AddIntent {
+	if playing {
+		return IntentQueue
+	}
+	return IntentPlay
+}
+
+// NewAddSource builds a focused add-source modal (play-now when room is idle).
 func NewAddSource(width int) AddSource {
+	return NewAddSourceWithIntent(width, IntentPlay)
+}
+
+// NewAddSourceWithIntent builds the add-source modal with the given default intent.
+func NewAddSourceWithIntent(width int, intent AddIntent) AddSource {
 	in := textinput.New()
 	in.Placeholder = "YouTube URL or search query"
 	in.CharLimit = 500
 	in.Focus()
 	in.Prompt = "> "
-	in.Width = max(0, width-6)
-	return AddSource{Input: in, Intent: IntentPlay}
+	in.Width = max(0, min(width-16, 48))
+	return AddSource{Input: in, Intent: intent}
 }
 
 // WithWidth updates the input width after terminal resize.
 func (m AddSource) WithWidth(width int) AddSource {
-	m.Input.Width = max(0, width-6)
+	m.Input.Width = max(0, min(width-16, 48))
 	return m
 }
 
@@ -57,16 +71,15 @@ func (m AddSource) intentLabel() string {
 	return "PLAY NOW"
 }
 
-// View renders the modal overlay panel.
+// View renders the floating add-source overlay card.
 func (m AddSource) View(tm theme.Theme, width int) string {
-	innerW := max(40, width-6)
 	hint := fmt.Sprintf("Tab: %s · Enter submit · Esc cancel", m.intentLabel())
 	lines := []string{
 		tm.Title().Render("ADD SOURCE"),
 		tm.Muted().Render(hint),
 		m.Input.View(),
 	}
-	return tm.Panel(true).Width(innerW).Render(strings.Join(lines, "\n"))
+	return panels.OverlayCard(tm, width, lines)
 }
 
 // Update forwards messages to the modal text input.
@@ -97,6 +110,13 @@ func (m AddSource) Submit(ctx context.Context, act *actions.Room) error {
 
 func max(a, b int) int {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
 		return a
 	}
 	return b

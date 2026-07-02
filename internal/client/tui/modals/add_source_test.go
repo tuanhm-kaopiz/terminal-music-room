@@ -86,6 +86,15 @@ func TestAddSourceToggleIntent(t *testing.T) {
 	}
 }
 
+func TestDefaultAddIntent(t *testing.T) {
+	if DefaultAddIntent(false) != IntentPlay {
+		t.Fatal("idle room should default to play")
+	}
+	if DefaultAddIntent(true) != IntentQueue {
+		t.Fatal("playing room should default to queue add")
+	}
+}
+
 func TestAddSourceView(t *testing.T) {
 	m := NewAddSource(80)
 	out := m.View(theme.Default(), 80)

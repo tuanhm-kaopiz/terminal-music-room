@@ -1,7 +1,10 @@
 package tui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
+	"github.com/terminal-music-room/music-room/internal/client/state"
 	"github.com/terminal-music-room/music-room/internal/client/tui/layout"
 	"github.com/terminal-music-room/music-room/internal/client/tui/modals"
 	"github.com/terminal-music-room/music-room/internal/client/tui/panels"
@@ -18,17 +21,58 @@ func (m Model) View() string {
 	}
 
 	tm := theme.Default()
-	reg := layout.Compute(m.width, m.height, false)
+	reg := m.layoutRegions()
 	v := m.view
 	isHost := IsHost(v)
+
+	header := panels.Header(tm, v, reg.Header.Width, reg.Header.Height)
+	footer := m.renderFooter(tm, v, reg, isHost)
+
+	switch m.mode {
+	case ModeHelp:
+		body := m.placeModal(reg, modals.Help(tm, m.width, isHost))
+		return clipView(joinHeaderBodyFooter(header, body, footer), m.width, m.height)
+	case ModeModalAdd:
+		modal := m.addModal.View(tm, m.width)
+		if m.errMsg != "" {
+			modal = tm.Error().Render(m.errMsg) + "\n" + modal
+		}
+		body := m.placeModal(reg, modal)
+		return clipView(joinHeaderBodyFooter(header, body, footer), m.width, m.height)
+	case ModeModalSeek:
+		modal := m.seekModal.View(tm, m.width)
+		if m.errMsg != "" {
+			modal = tm.Error().Render(m.errMsg) + "\n" + modal
+		}
+		body := m.placeModal(reg, modal)
+		return clipView(joinHeaderBodyFooter(header, body, footer), m.width, m.height)
+	case ModeModalLeave:
+		modal := m.leaveModal.View(tm, m.width)
+		if m.errMsg != "" {
+			modal = tm.Error().Render(m.errMsg) + "\n" + modal
+		}
+		body := m.placeModal(reg, modal)
+		return clipView(joinHeaderBodyFooter(header, body, footer), m.width, m.height)
+	case ModeModalPassword:
+		modal := m.passwordModal.View(tm, m.width)
+		if m.errMsg != "" {
+			modal = tm.Error().Render(m.errMsg) + "\n" + modal
+		}
+		body := m.placeModal(reg, modal)
+		return clipView(joinHeaderBodyFooter(header, body, footer), m.width, m.height)
+	}
+
+	body := m.renderBody(tm, v, reg)
+	return clipView(joinHeaderBodyFooter(header, body, footer), m.width, m.height)
+}
+
+func (m Model) renderBody(tm theme.Theme, v state.View, reg layout.Regions) string {
 	queueOpts := m.renderOpts(FocusQueue)
 	chatOpts := m.renderOpts(FocusChat)
 	membersOpts := m.renderOpts(FocusMembers)
 
-	var parts []string
-	parts = append(parts, panels.Header(tm, v, reg.Header.Width, reg.Header.Height))
-
 	if reg.Degraded {
+		var parts []string
 		parts = append(parts, tm.Warning().Render(
 			"⚠ terminal < 80×24 — degraded HUD (room + now playing prioritized)",
 		))
@@ -36,58 +80,69 @@ func (m Model) View() string {
 		if !reg.Members.IsZero() {
 			parts = append(parts, panels.Members(tm, v, reg.Members.Width, reg.Members.Height, membersOpts))
 		}
-	} else {
-		topRow := lipgloss.JoinHorizontal(lipgloss.Top,
-			panels.NowPlaying(tm, v, reg.NowPlaying.Width, reg.NowPlaying.Height, panels.RenderOpts{}),
-			panels.Members(tm, v, reg.Members.Width, reg.Members.Height, membersOpts),
-			panels.Signals(tm, v, reg.Signals.Width, reg.Signals.Height, panels.RenderOpts{}),
-		)
-		parts = append(parts, topRow)
-		parts = append(parts, panels.Queue(tm, v, reg.Queue.Width, reg.Queue.Height, queueOpts))
-		parts = append(parts, panels.Chat(tm, v, reg.Chat.Width, reg.Chat.Height, chatOpts))
-	}
-
-	if m.mode == ModeHelp {
-		parts = append(parts, modals.Help(tm, m.width, isHost))
-		parts = append(parts, panels.StatusBar(tm, v, reg.Width, isHost))
 		return lipgloss.JoinVertical(lipgloss.Left, parts...)
 	}
 
-	if m.mode == ModeModalSeek {
-		if m.errMsg != "" {
-			parts = append(parts, tm.Error().Render(m.errMsg))
-		}
-		parts = append(parts, m.seekModal.View(tm, m.width))
-		parts = append(parts, panels.StatusBar(tm, v, reg.Width, isHost))
-		return lipgloss.JoinVertical(lipgloss.Left, parts...)
-	}
+	row1 := lipgloss.JoinHorizontal(lipgloss.Top,
+		panels.NowPlaying(tm, v, reg.NowPlaying.Width, reg.NowPlaying.Height, panels.RenderOpts{}),
+		panels.Members(tm, v, reg.Members.Width, reg.Members.Height, membersOpts),
+	)
+	row1 = lipgloss.NewStyle().Width(reg.Width).Render(row1)
 
-	if m.mode == ModeModalAdd {
-		if m.errMsg != "" {
-			parts = append(parts, tm.Error().Render(m.errMsg))
-		}
-		parts = append(parts, m.addModal.View(tm, m.width))
-		parts = append(parts, panels.StatusBar(tm, v, reg.Width, isHost))
-		return lipgloss.JoinVertical(lipgloss.Left, parts...)
-	}
+	row2 := lipgloss.JoinHorizontal(lipgloss.Top,
+		panels.Queue(tm, v, reg.Queue.Width, reg.Queue.Height, queueOpts),
+		panels.Signals(tm, v, reg.Signals.Width, reg.Signals.Height, panels.RenderOpts{}),
+	)
+	row2 = lipgloss.NewStyle().Width(reg.Width).Render(row2)
 
-	if m.mode == ModeModalLeave {
-		if m.errMsg != "" {
-			parts = append(parts, tm.Error().Render(m.errMsg))
-		}
-		parts = append(parts, m.leaveModal.View(tm, m.width))
-		parts = append(parts, panels.StatusBar(tm, v, reg.Width, isHost))
-		return lipgloss.JoinVertical(lipgloss.Left, parts...)
-	}
+	row3 := panels.Chat(tm, v, reg.Chat.Width, reg.Chat.Height, chatOpts)
 
+	return lipgloss.JoinVertical(lipgloss.Left, row1, row2, row3)
+}
+
+func (m Model) renderFooter(tm theme.Theme, v state.View, reg layout.Regions, isHost bool) string {
 	input := m.input.View()
-	if m.errMsg != "" {
+	if m.errMsg != "" && m.mode == ModeDashboard {
 		input = tm.Error().Render(m.errMsg) + "\n" + input
 	}
-	parts = append(parts, input)
-	parts = append(parts, panels.StatusBar(tm, v, reg.Width, isHost))
+	return lipgloss.JoinVertical(lipgloss.Left, input, panels.StatusBar(tm, v, reg.Width, isHost))
+}
 
-	return lipgloss.JoinVertical(lipgloss.Left, parts...)
+func (m Model) placeModal(reg layout.Regions, modal string) string {
+	bodyH := reg.BodyHeight()
+	if bodyH < 1 {
+		bodyH = 1
+	}
+	return lipgloss.Place(reg.Width, bodyH, lipgloss.Center, lipgloss.Center, modal)
+}
+
+func joinHeaderBodyFooter(header, body, footer string) string {
+	return lipgloss.JoinVertical(lipgloss.Left, header, body, footer)
+}
+
+func (m Model) layoutRegions() layout.Regions {
+	extra := 0
+	if m.errMsg != "" && m.mode == ModeDashboard {
+		extra++
+	}
+	if m.width < layout.MinWidth || m.height < layout.MinHeight {
+		extra++
+	}
+	if m.view.LastErr != nil && m.view.LastErr.Message != "" && m.mode == ModeDashboard {
+		extra++
+	}
+	return layout.Compute(m.width, m.height, false, extra)
+}
+
+func clipView(content string, width, height int) string {
+	if width < 1 || height < 1 {
+		return content
+	}
+	lines := strings.Split(content, "\n")
+	if len(lines) > height {
+		lines = lines[:height]
+	}
+	return lipgloss.Place(width, height, lipgloss.Left, lipgloss.Top, strings.Join(lines, "\n"))
 }
 
 func (m Model) renderOpts(panel FocusPanel) panels.RenderOpts {
@@ -103,6 +158,7 @@ func (m Model) renderOpts(panel FocusPanel) panels.RenderOpts {
 	}
 	if panel == FocusMembers {
 		opts.MembersScroll = m.membersScroll
+		opts.MembersSelectedIdx = m.selectedMemberIdx
 	}
 	return opts
 }

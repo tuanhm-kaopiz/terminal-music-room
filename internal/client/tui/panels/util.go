@@ -10,15 +10,51 @@ import (
 	"github.com/terminal-music-room/music-room/internal/protocol"
 )
 
-func innerSize(width, height int) (int, int) {
-	return max(1, width-4), max(1, height-2)
+const lipglossBorderCells = 2
+
+func innerSize(lipW, lipH int) (int, int) {
+	return max(1, lipW-2), max(1, lipH)
+}
+
+func panelInnerSize(regionW, regionH int) (int, int) {
+	lipW := max(1, regionW-lipglossBorderCells)
+	lipH := max(1, regionH-lipglossBorderCells)
+	return innerSize(lipW, lipH)
 }
 
 func wrapPanel(tm theme.Theme, focused bool, width, height int, lines []string) string {
-	innerW, innerH := innerSize(width, height)
-	trimmed := trimLines(lines, innerW)
+	lipW := max(1, width-lipglossBorderCells)
+	lipH := max(1, height-lipglossBorderCells)
+	innerW, innerH := innerSize(lipW, lipH)
+	trimmed := trimLines(flattenLines(lines), innerW)
 	padded := padLines(trimmed, innerH)
-	return tm.Panel(focused).Width(width).Height(height).Render(strings.Join(padded[:innerH], "\n"))
+	return tm.Panel(focused).Width(lipW).Height(lipH).Render(strings.Join(padded[:innerH], "\n"))
+}
+
+// WrapModal renders a focused bordered panel sized to the terminal region.
+func WrapModal(tm theme.Theme, width, height int, lines []string) string {
+	return wrapPanel(tm, true, width, height, lines)
+}
+
+// OverlayCard renders a compact floating modal for centered body overlays.
+func OverlayCard(tm theme.Theme, termWidth int, lines []string) string {
+	cardW := max(40, min(termWidth-12, 58))
+	return wrapPanel(tm, true, cardW, 7, lines)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func flattenLines(lines []string) []string {
+	var out []string
+	for _, line := range lines {
+		out = append(out, strings.Split(line, "\n")...)
+	}
+	return out
 }
 
 func trimLines(lines []string, innerW int) []string {

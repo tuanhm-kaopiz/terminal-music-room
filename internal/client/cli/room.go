@@ -11,10 +11,12 @@ import (
 
 var joinRepl bool
 var joinTUI bool
+var roomPassword string
 
 var createCmd = &cobra.Command{
 	Use:   "create <slug>",
 	Short: "Create a room",
+	Long:  "Create a room. Use --password to require a password when joining (may be stored in shell history).",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runCreate,
 }
@@ -22,6 +24,7 @@ var createCmd = &cobra.Command{
 var joinCmd = &cobra.Command{
 	Use:   "join <slug>",
 	Short: "Join a room",
+	Long:  "Join a room. Use --password for protected rooms (may be stored in shell history).",
 	Args:  cobra.ExactArgs(1),
 	RunE:  runJoin,
 }
@@ -35,6 +38,8 @@ var leaveCmd = &cobra.Command{
 func init() {
 	joinCmd.Flags().BoolVar(&joinRepl, "repl", false, "start interactive REPL after joining (instead of TUI)")
 	joinCmd.Flags().BoolVar(&joinTUI, "tui", true, "start Bubble Tea TUI after joining")
+	createCmd.Flags().StringVar(&roomPassword, "password", "", "optional room password (stored in shell history; prefer TUI prompt)")
+	joinCmd.Flags().StringVar(&roomPassword, "password", "", "room password if required (stored in shell history; prefer TUI prompt)")
 	RootCmd.AddCommand(createCmd, joinCmd, leaveCmd)
 }
 
@@ -42,7 +47,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	slug := args[0]
 	ctx := commandContext(cmd)
 	return withRuntime(ctx, func(ctx context.Context, rt *Runtime) error {
-		if err := rt.send(ctx, protocol.MsgRoomCreate, protocol.RoomCreatePayload{Slug: slug}); err != nil {
+		if err := rt.send(ctx, protocol.MsgRoomCreate, protocol.RoomCreatePayload{Slug: slug, Password: roomPassword}); err != nil {
 			return err
 		}
 		if err := rt.waitInRoom(slug, defaultWait); err != nil {
@@ -67,7 +72,7 @@ func runJoin(cmd *cobra.Command, args []string) error {
 	if err := rt.ensureConnected(ctx); err != nil {
 		return err
 	}
-	if err := rt.send(ctx, protocol.MsgRoomJoin, protocol.RoomJoinPayload{Slug: slug}); err != nil {
+	if err := rt.send(ctx, protocol.MsgRoomJoin, protocol.RoomJoinPayload{Slug: slug, Password: roomPassword}); err != nil {
 		return err
 	}
 	if err := rt.waitInRoom(slug, defaultWait); err != nil {

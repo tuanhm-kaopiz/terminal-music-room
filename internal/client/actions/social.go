@@ -2,6 +2,7 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -57,4 +58,31 @@ func (r *Room) Leave(ctx context.Context) error {
 		return err
 	}
 	return r.send(ctx, protocol.MsgRoomLeave, protocol.RoomLeavePayload{})
+}
+
+// Create sends room.create with an optional password.
+func (r *Room) Create(ctx context.Context, slug, password string) error {
+	if r.Store != nil && r.Store.Snapshot().InRoom {
+		return errors.New("leave current room first")
+	}
+	return r.send(ctx, protocol.MsgRoomCreate, protocol.RoomCreatePayload{Slug: slug, Password: password})
+}
+
+// Join sends room.join with an optional password.
+func (r *Room) Join(ctx context.Context, slug, password string) error {
+	if r.Store != nil && r.Store.Snapshot().InRoom {
+		return errors.New("leave current room first")
+	}
+	return r.send(ctx, protocol.MsgRoomJoin, protocol.RoomJoinPayload{Slug: slug, Password: password})
+}
+
+// Kick asks the host to remove a member from the room.
+func (r *Room) Kick(ctx context.Context, targetSessionID string) error {
+	if targetSessionID == "" {
+		return errors.New("target session id is required")
+	}
+	if err := r.requireInRoom(); err != nil {
+		return err
+	}
+	return r.send(ctx, protocol.MsgRoomKick, protocol.RoomKickPayload{TargetSessionID: targetSessionID})
 }

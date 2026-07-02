@@ -2,6 +2,8 @@ package sync
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -25,6 +27,7 @@ type Driver interface {
 	Resume(ctx context.Context) error
 	Seek(ctx context.Context, positionMs int64) error
 	PositionMs(ctx context.Context) (int64, error)
+	Seekable(ctx context.Context) (bool, error)
 }
 
 // Config configures the playback sync engine.
@@ -67,21 +70,15 @@ func (e *Engine) Run(ctx context.Context) error {
 	ticker := time.NewTicker(e.cfg.DriftPollInterval)
 	defer ticker.Stop()
 
-	if err := e.Sync(ctx); err != nil {
-		return err
-	}
+	_ = e.Sync(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-playbackCh:
-			if err := e.Sync(ctx); err != nil {
-				return err
-			}
+			_ = e.Sync(ctx)
 		case <-ticker.C:
-			if err := e.Sync(ctx); err != nil {
-				return err
-			}
+			_ = e.Sync(ctx)
 		}
 	}
 }
@@ -119,14 +116,12 @@ func (e *Engine) syncView(ctx context.Context, view state.View) error {
 			return err
 		}
 		e.lastVideoID = videoID
-		serverMs := EffectiveServerMs(view, e.cfg.Now())
-		if err := e.cfg.Player.Seek(ctx, serverMs); err != nil {
-			return err
-		}
-		return e.syncStatus(ctx, pb.Status)
 	}
 
 	if err := e.syncStatus(ctx, pb.Status); err != nil {
+		if isTransientPlaybackErr(err) {
+			return nil
+		}
 		return err
 	}
 
@@ -134,13 +129,32 @@ func (e *Engine) syncView(ctx context.Context, view state.View) error {
 		return nil
 	}
 
+	seekable, err := e.cfg.Player.Seekable(ctx)
+	if err != nil {
+		if isTransientPlaybackErr(err) {
+			return nil
+		}
+		return err
+	}
+	if !seekable {
+		return nil
+	}
+
 	serverMs := EffectiveServerMs(view, e.cfg.Now())
 	localMs, err := e.cfg.Player.PositionMs(ctx)
 	if err != nil {
+		if isTransientPlaybackErr(err) {
+			return nil
+		}
 		return err
 	}
 	if abs64(localMs-serverMs) > e.cfg.DriftThresholdMs {
-		return e.cfg.Player.Seek(ctx, serverMs)
+		if err := e.cfg.Player.Seek(ctx, serverMs); err != nil {
+			if isTransientPlaybackErr(err) {
+				return nil
+			}
+			return err
+		}
 	}
 	return nil
 }
@@ -161,6 +175,19 @@ func (e *Engine) ensurePlayer(ctx context.Context) error {
 		return nil
 	}
 	return e.cfg.Player.Start(ctx)
+}
+
+func isTransientPlaybackErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "mpv ipc") ||
+		strings.Contains(msg, "mpv seek") ||
+		strings.Contains(msg, "time-pos")
 }
 
 // EffectiveServerMs returns the interpolated server playback position at now.

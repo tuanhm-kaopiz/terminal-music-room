@@ -2,8 +2,8 @@ package modals
 
 import (
 	"fmt"
-	"strings"
 
+	"github.com/terminal-music-room/music-room/internal/client/tui/panels"
 	"github.com/terminal-music-room/music-room/internal/client/tui/theme"
 )
 
@@ -20,13 +20,12 @@ func NewConfirmLeave(room string) ConfirmLeave {
 	return ConfirmLeave{Room: room}
 }
 
-// View renders the leave confirmation panel.
+// View renders the leave confirmation overlay card.
 func (c ConfirmLeave) View(tm theme.Theme, width int) string {
-	innerW := max(40, width-6)
 	lines := []string{
 		tm.Title().Render("LEAVE ROOM"),
 		tm.Warning().Render(fmt.Sprintf("Leave %s?", c.Room)),
 		tm.Muted().Render("y / Enter confirm · Esc cancel"),
 	}
-	return tm.Panel(true).Width(innerW).Render(strings.Join(lines, "\n"))
+	return panels.OverlayCard(tm, width, lines)
 }

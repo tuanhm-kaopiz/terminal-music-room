@@ -2,6 +2,7 @@ package sync
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -22,6 +23,14 @@ type mockDriver struct {
 	stops  int
 	plays  []string
 	seeks  []int64
+	playErr   error
+	seekable  bool
+}
+
+func (m *mockDriver) Seekable(context.Context) (bool, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.seekable, nil
 }
 
 func (m *mockDriver) Start(context.Context) error {
@@ -50,6 +59,9 @@ func (m *mockDriver) Running() bool {
 func (m *mockDriver) Play(_ context.Context, videoID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.playErr != nil {
+		return m.playErr
+	}
 	m.videoID = videoID
 	m.plays = append(m.plays, videoID)
 	m.paused = false
@@ -117,7 +129,7 @@ func TestEffectiveServerMsFromTick(t *testing.T) {
 
 func TestSyncLoadsNewTrack(t *testing.T) {
 	store := state.NewStore()
-	driver := &mockDriver{}
+	driver := &mockDriver{seekable: true}
 	engine := New(Config{Store: store, Player: driver, Now: time.Now})
 
 	applyRoomPlayback(t, store, protocol.PlaybackState{
@@ -145,7 +157,7 @@ func TestSyncLoadsNewTrack(t *testing.T) {
 
 func TestSyncPauseResume(t *testing.T) {
 	store := state.NewStore()
-	driver := &mockDriver{running: true, videoID: "abc123xyz01"}
+	driver := &mockDriver{running: true, videoID: "abc123xyz01", seekable: true}
 	engine := New(Config{Store: store, Player: driver})
 	engine.lastVideoID = "abc123xyz01"
 
@@ -178,7 +190,7 @@ func TestSyncPauseResume(t *testing.T) {
 func TestSyncDriftSeek(t *testing.T) {
 	now := time.Date(2026, 7, 1, 12, 0, 2, 0, time.UTC)
 	store := state.NewStore()
-	driver := &mockDriver{running: true, videoID: "abc123xyz01", position: 10_000}
+	driver := &mockDriver{running: true, videoID: "abc123xyz01", position: 10_000, seekable: true}
 	engine := New(Config{Store: store, Player: driver, DriftThresholdMs: 150, Now: func() time.Time { return now }})
 	engine.lastVideoID = "abc123xyz01"
 
@@ -204,7 +216,7 @@ func TestSyncDriftSeek(t *testing.T) {
 func TestSyncNoSeekWithinThreshold(t *testing.T) {
 	now := time.Date(2026, 7, 1, 12, 0, 2, 0, time.UTC)
 	store := state.NewStore()
-	driver := &mockDriver{running: true, videoID: "abc123xyz01", position: 7050}
+	driver := &mockDriver{running: true, videoID: "abc123xyz01", position: 7050, seekable: true}
 	engine := New(Config{Store: store, Player: driver, DriftThresholdMs: 150, Now: func() time.Time { return now }})
 	engine.lastVideoID = "abc123xyz01"
 
@@ -273,6 +285,55 @@ func TestRunReactsToPlaybackNotify(t *testing.T) {
 	cancel()
 	<-done
 	t.Fatal("timeout waiting for playback sync")
+}
+
+func TestSyncSkipsSeekWhileNotSeekable(t *testing.T) {
+	store := state.NewStore()
+	driver := &mockDriver{running: true, videoID: "abc123xyz01", position: 0, seekable: false}
+	engine := New(Config{Store: store, Player: driver, DriftThresholdMs: 150, Now: time.Now})
+	engine.lastVideoID = "abc123xyz01"
+
+	applyRoomPlayback(t, store, protocol.PlaybackState{
+		Status:     protocol.PlaybackPlaying,
+		Track:      &protocol.Track{VideoID: "abc123xyz01", Title: "t", DurationMs: 60_000},
+		PositionMs: 5000,
+	})
+
+	if err := engine.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if got := driver.lastSeek(); got != -1 {
+		t.Fatalf("seek %d, want no seek while buffering", got)
+	}
+}
+
+func TestSyncRetriesAfterPlayFailure(t *testing.T) {
+	store := state.NewStore()
+	driver := &mockDriver{seekable: true}
+	engine := New(Config{Store: store, Player: driver, Now: time.Now})
+
+	applyRoomPlayback(t, store, protocol.PlaybackState{
+		Status:     protocol.PlaybackPlaying,
+		Track:      &protocol.Track{VideoID: "abc123xyz01", Title: "t", DurationMs: 60_000},
+		PositionMs: 500,
+	})
+
+	driver.playErr = fmt.Errorf("mpv busy")
+	if err := engine.Sync(context.Background()); err == nil {
+		t.Fatal("expected play error")
+	}
+	if engine.LastVideoID() != "" {
+		t.Fatal("lastVideoID should stay empty after failed play")
+	}
+
+	driver.playErr = nil
+	driver.seekable = true
+	if err := engine.Sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if engine.LastVideoID() != "abc123xyz01" {
+		t.Fatalf("video %q", engine.LastVideoID())
+	}
 }
 
 func applyRoomPlayback(t *testing.T, store *state.Store, pb protocol.PlaybackState) {

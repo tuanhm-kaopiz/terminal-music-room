@@ -92,9 +92,10 @@ type VoteProgress struct {
 
 // RoomSnapshot is the full room state sent after join or reconnect.
 type RoomSnapshot struct {
-	Slug      string         `json:"slug"`
-	HostID    string         `json:"host_session_id"`
-	Members   []Member       `json:"members"`
+	Slug              string         `json:"slug"`
+	HostID            string         `json:"host_session_id"`
+	PasswordProtected bool           `json:"password_protected"`
+	Members           []Member       `json:"members"`
 	Playback  PlaybackState  `json:"playback"`
 	Queue     []QueueItem    `json:"queue"`
 	Chat      []ChatMessage  `json:"chat"`

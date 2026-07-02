@@ -35,22 +35,24 @@ type Regions struct {
 }
 
 const (
-	headerRows  = 3
+	headerRows  = 1 // plain text strip (no bordered panel)
 	inputRows   = 1
 	statusRows  = 1
 	footerRows  = inputRows + statusRows
-	minTopRowH  = 5
-	minQueueH   = 4
-	minChatH    = 3
+	panelBorder = 2 // lipgloss border adds 2 cells per panel edge
+	bodyRows    = 3 // row1 playing+crew, row2 queue+signals, row3 chat
+	minRow1H    = 5
+	minRow2H    = 4
+	minRow3H    = 3
 	minNowPlayW = 28
-	minCrewW    = 12
-	minSignalsW = 14
+	minCrewW    = 14
+	minSignalsW = 12
+	minQueueW   = 24
 )
 
 // Compute returns HUD regions for the given terminal size.
-// When width < MinWidth or height < MinHeight, Degraded is true and
-// non-essential panels (signals, queue, chat) are collapsed (AC-011).
-func Compute(width, height int, asciiBorders bool) Regions {
+// extraFooterRows subtracts from body height (error toast, degraded banner).
+func Compute(width, height int, asciiBorders bool, extraFooterRows ...int) Regions {
 	if width < 1 {
 		width = 1
 	}
@@ -65,12 +67,26 @@ func Compute(width, height int, asciiBorders bool) Regions {
 		Input:        Region{Width: width, Height: minInt(inputRows, height)},
 		StatusBar:    Region{Width: width, Height: minInt(statusRows, height)},
 	}
+	footerExtra := 0
+	if len(extraFooterRows) > 0 && extraFooterRows[0] > 0 {
+		footerExtra = extraFooterRows[0]
+	}
+	layoutH := height
+	if footerExtra > 0 {
+		layoutH = maxInt(1, height-footerExtra)
+	}
+	r.Height = layoutH
 	if r.Degraded {
 		r.computeDegraded()
 		return r
 	}
 	r.computeFull()
 	return r
+}
+
+// BodyHeight is the vertical space for the three content rows (excludes header/footer).
+func (r Regions) BodyHeight() int {
+	return r.NowPlaying.Height + r.Queue.Height + r.Chat.Height
 }
 
 func (r *Regions) computeDegraded() {
@@ -80,9 +96,10 @@ func (r *Regions) computeDegraded() {
 		body = 1
 	}
 	r.Header = Region{Width: w, Height: minInt(headerRows, h)}
-	// Priority: room + now playing + online (AC-011).
-	r.NowPlaying = Region{Width: w, Height: maxInt(3, body-2)}
-	r.Members = Region{Width: w, Height: minInt(2, body)}
+	r1 := maxInt(3, body*2/3)
+	r2 := body - r1
+	r.NowPlaying = Region{Width: w, Height: r1}
+	r.Members = Region{Width: w, Height: minInt(2, r2)}
 	r.Signals = Region{}
 	r.Queue = Region{}
 	r.Chat = Region{}
@@ -93,37 +110,41 @@ func (r *Regions) computeFull() {
 	r.Header = Region{Width: w, Height: headerRows}
 
 	body := h - headerRows - footerRows
-	if body < minTopRowH+minQueueH+minChatH {
-		body = minTopRowH + minQueueH + minChatH
+	if body < minRow1H+minRow2H+minRow3H {
+		body = minRow1H + minRow2H + minRow3H
 	}
 
-	topH := maxInt(minTopRowH, body*2/7)
-	queueH := maxInt(minQueueH, body*2/7)
-	chatH := body - topH - queueH
-	if chatH < minChatH {
-		chatH = minChatH
-		queueH = body - topH - chatH
-		if queueH < minQueueH {
-			queueH = minQueueH
-			topH = body - queueH - chatH
-		}
+	row1H := maxInt(minRow1H, body/bodyRows)
+	row2H := maxInt(minRow2H, body/bodyRows)
+	row3H := body - row1H - row2H
+	if row3H < minRow3H {
+		row3H = minRow3H
+		row2H = maxInt(minRow2H, (body-row3H)/2)
+		row1H = body - row2H - row3H
 	}
 
-	crewW := maxInt(minCrewW, w/5)
-	signalsW := maxInt(minSignalsW, w/4)
-	nowW := w - crewW - signalsW
+	// Row 1: now playing + crew (two abreast; borders add panelBorder each).
+	pairW := w - 2*panelBorder
+	crewW := maxInt(minCrewW, pairW/3)
+	nowW := pairW - crewW
 	if nowW < minNowPlayW {
 		nowW = minNowPlayW
-		remaining := w - nowW
-		crewW = remaining / 2
-		signalsW = remaining - crewW
+		crewW = pairW - nowW
 	}
 
-	r.NowPlaying = Region{Width: nowW, Height: topH}
-	r.Members = Region{Width: crewW, Height: topH}
-	r.Signals = Region{Width: signalsW, Height: topH}
-	r.Queue = Region{Width: w, Height: queueH}
-	r.Chat = Region{Width: w, Height: chatH}
+	// Row 2: queue + signals (two abreast).
+	signalsW := maxInt(minSignalsW, pairW*2/5)
+	queueW := pairW - signalsW
+	if queueW < minQueueW {
+		queueW = minQueueW
+		signalsW = pairW - queueW
+	}
+
+	r.NowPlaying = Region{Width: nowW, Height: row1H}
+	r.Members = Region{Width: crewW, Height: row1H}
+	r.Signals = Region{Width: signalsW, Height: row2H}
+	r.Queue = Region{Width: queueW, Height: row2H}
+	r.Chat = Region{Width: w, Height: row3H}
 }
 
 func maxInt(a, b int) int {

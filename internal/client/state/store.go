@@ -31,6 +31,7 @@ type Store struct {
 
 	LastTick protocol.PlaybackTickPayload
 	LastErr  *protocol.ErrorPayload
+	KickedMessage string
 
 	playbackListeners []chan struct{}
 	roomListeners     []chan struct{}
@@ -64,13 +65,14 @@ func (s *Store) Snapshot() View {
 		lastErr = &errCopy
 	}
 	return View{
-		Status:      s.Status,
-		SessionID:   s.SessionID,
-		DisplayName: s.DisplayName,
-		InRoom:      s.InRoom,
-		Room:        room,
-		LastTick:    s.LastTick,
-		LastErr:     lastErr,
+		Status:        s.Status,
+		SessionID:     s.SessionID,
+		DisplayName:   s.DisplayName,
+		InRoom:        s.InRoom,
+		Room:          room,
+		LastTick:      s.LastTick,
+		LastErr:       lastErr,
+		KickedMessage: s.KickedMessage,
 	}
 }
 
@@ -82,7 +84,8 @@ type View struct {
 	InRoom      bool
 	Room        protocol.RoomSnapshot
 	LastTick    protocol.PlaybackTickPayload
-	LastErr     *protocol.ErrorPayload
+	LastErr       *protocol.ErrorPayload
+	KickedMessage string
 }
 
 // SubscribePlayback returns a coalesced notify channel for playback.state/tick updates.
@@ -136,6 +139,7 @@ func (s *Store) ClearRoom() {
 	s.InRoom = false
 	s.Room = protocol.RoomSnapshot{}
 	s.LastTick = protocol.PlaybackTickPayload{}
+	s.KickedMessage = ""
 	s.emitPlaybackChange()
 	s.emitRoomChange()
 }
@@ -173,6 +177,12 @@ func (s *Store) Apply(env protocol.Envelope) error {
 			return err
 		}
 		s.applyHostChanged(p)
+	case protocol.MsgRoomKicked:
+		var p protocol.RoomKickedPayload
+		if err := env.UnmarshalPayload(&p); err != nil {
+			return err
+		}
+		s.applyRoomKicked(p)
 	case protocol.MsgPlaybackState:
 		var p protocol.PlaybackState
 		if err := env.UnmarshalPayload(&p); err != nil {
@@ -259,6 +269,20 @@ func (s *Store) applyMemberLeft(p protocol.RoomMemberLeftPayload) {
 		}
 	}
 	s.Room.Members = out
+	s.emitRoomChange()
+}
+
+func (s *Store) applyRoomKicked(p protocol.RoomKickedPayload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.InRoom = false
+	s.Room = protocol.RoomSnapshot{}
+	s.LastTick = protocol.PlaybackTickPayload{}
+	s.KickedMessage = p.Message
+	if s.KickedMessage == "" {
+		s.KickedMessage = "Removed from room by host"
+	}
+	s.emitPlaybackChange()
 	s.emitRoomChange()
 }
 

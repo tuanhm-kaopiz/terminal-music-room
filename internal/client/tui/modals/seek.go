@@ -10,6 +10,7 @@ import (
 	"github.com/terminal-music-room/music-room/internal/client/actions"
 	"github.com/terminal-music-room/music-room/internal/client/state"
 	"github.com/terminal-music-room/music-room/internal/client/tui/keys"
+	"github.com/terminal-music-room/music-room/internal/client/tui/panels"
 	"github.com/terminal-music-room/music-room/internal/client/tui/theme"
 )
 
@@ -25,25 +26,24 @@ func NewSeek(width int) Seek {
 	in.CharLimit = 12
 	in.Focus()
 	in.Prompt = "> "
-	in.Width = max(0, width-6)
+	in.Width = max(0, min(width-16, 24))
 	return Seek{Input: in}
 }
 
 // WithWidth updates the input width after terminal resize.
 func (m Seek) WithWidth(width int) Seek {
-	m.Input.Width = max(0, width-6)
+	m.Input.Width = max(0, min(width-16, 24))
 	return m
 }
 
-// View renders the seek modal overlay panel.
+// View renders the floating seek overlay card.
 func (m Seek) View(tm theme.Theme, width int) string {
-	innerW := max(40, width-6)
 	lines := []string{
 		tm.Title().Render("SEEK"),
 		tm.Muted().Render("Enter position (ms) · Enter submit · Esc cancel"),
 		m.Input.View(),
 	}
-	return tm.Panel(true).Width(innerW).Render(strings.Join(lines, "\n"))
+	return panels.OverlayCard(tm, width, lines)
 }
 
 // Update forwards messages to the modal text input.

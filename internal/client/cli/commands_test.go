@@ -29,6 +29,9 @@ func resetCLIGlobals() {
 	RootCmd.SetErr(io.Discard)
 	_ = joinCmd.Flags().Set("tui", "true")
 	_ = joinCmd.Flags().Set("repl", "false")
+	queueImportDryRun = false
+	queueImportDelay = 2 * time.Second
+	_ = queueImportCmd.Flags().Set("dry-run", "false")
 }
 
 func TestJoinFlagDefaults(t *testing.T) {

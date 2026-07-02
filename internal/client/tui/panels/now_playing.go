@@ -9,7 +9,7 @@ import (
 
 // NowPlaying renders track title, progress bar, and playback status.
 func NowPlaying(tm theme.Theme, v state.View, width, height int, opts RenderOpts) string {
-	innerW, _ := innerSize(width, height)
+	innerW, _ := panelInnerSize(width, height)
 	pb := v.Room.Playback
 	title := "(nothing playing)"
 	if pb.Track != nil && pb.Track.Title != "" {
@@ -25,7 +25,7 @@ func NowPlaying(tm theme.Theme, v state.View, width, height int, opts RenderOpts
 		status := fmt.Sprintf("%s  %s / %s", pb.Status, formatMs(pos), formatMs(dur))
 		lines := []string{
 			tm.Title().Render("NOW PLAYING"),
-			"▶ " + title,
+			"▶ " + truncate(title, max(1, innerW-2)),
 			bar,
 			status,
 		}
@@ -33,7 +33,7 @@ func NowPlaying(tm theme.Theme, v state.View, width, height int, opts RenderOpts
 	}
 	lines := []string{
 		tm.Title().Render("NOW PLAYING"),
-		"▶ " + title,
+		"▶ " + truncate(title, max(1, innerW-2)),
 		tm.Muted().Render(string(pb.Status)),
 	}
 	return wrapPanel(tm, opts.Focused, width, height, lines)
